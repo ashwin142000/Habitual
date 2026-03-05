@@ -155,6 +155,7 @@ body{background:#0d0c0b;overscroll-behavior:none}
 .fl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
 .fi{width:100%;padding:11px 14px;border-radius:10px;background:var(--s2);border:1px solid var(--border);color:var(--text);font-family:var(--ff-b);font-size:14px;outline:none;transition:border-color .15s;min-height:44px;-webkit-appearance:none}
 .fi:focus{border-color:var(--accent)}
+.fi-err{border-color:var(--danger)!important}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .icon-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
 .icon-opt{aspect-ratio:1;border-radius:10px;border:1.5px solid var(--border);background:var(--s2);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;min-height:44px;-webkit-tap-highlight-color:transparent}
@@ -274,10 +275,10 @@ select.fi{appearance:none;-webkit-appearance:none}
 
 <script type="text/babel">
 // ─────────────────────────────────────────────────────────────────────────────
-// ⚙️  SUPABASE CONFIG  — Replace these two values with yours from Supabase
+// ⚙️  SUPABASE CONFIG  — Replace these two values with yours
 // ─────────────────────────────────────────────────────────────────────────────
-const SUPABASE_URL  = "https://peocbejeapqvegiuiaee.supabase.co";      // e.g. https://xxxx.supabase.co
-const SUPABASE_KEY  = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBlb2NiZWplYXBxdmVnaXVpYWVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2OTQ3ODAsImV4cCI6MjA4ODI3MDc4MH0.RsGHEwJP3OzdusJlZoV5vFa6qZ0CPMPgJkIOwS3AfnQ"; // starts with eyJ...
+const SUPABASE_URL  = "YOUR_SUPABASE_URL";
+const SUPABASE_KEY  = "YOUR_SUPABASE_ANON_KEY";
 // ─────────────────────────────────────────────────────────────────────────────
 
 const { useState, useEffect, useCallback, useRef } = React;
@@ -289,58 +290,192 @@ const COLORS = [
   {bg:"#e76f51"},{bg:"#2a9d8f"},{bg:"#e9c46a"},{bg:"#457b9d"},
   {bg:"#f4a261"},{bg:"#8ecae6"},{bg:"#b5838d"},{bg:"#6a994e"},
 ];
+const VALID_COLORS = new Set(COLORS.map(c=>c.bg));
 const ICONS = ["💧","🏃","📚","🧘","🍎","💪","🛌","✍️","🎯","🎸","🌿","🧠","🚴","🧹","💊","🌅","🥗","🎨"];
+const VALID_ICONS = new Set(ICONS);
+const VALID_TYPES = new Set(["checkbox","counter"]);
+
+const LIMITS = {
+  NAME_MIN: 1, NAME_MAX: 60,
+  UNIT_MIN: 1, UNIT_MAX: 20,
+  GOAL_MIN: 1, GOAL_MAX: 999,
+};
 
 const todayStr = () => new Date().toISOString().slice(0,10);
 const fmtDate  = d => new Date(d+"T00:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"});
-const initials = name => name ? name.split(" ").map(w=>w[0]).join("").toUpperCase().slice(0,2) : "?";
+const mkInitials = name => (name||"?").split(" ").map(w=>w[0]).join("").toUpperCase().slice(0,2)||"?";
 
-function calcStreak(logs){
+// ── Central validator + sanitizer ─────────────────────────────────────────────
+// Returns { ok, errors:{field:msg}, data:sanitizedPayload }
+function validateHabit(raw, existingHabits=[], editingId=null){
+  const errors = {};
+  const name = (raw.name||"").trim();
+  const unit = (raw.unit||"").trim();
+  const goal = parseInt(raw.goal);
+  const type = raw.type;
+  const icon = raw.icon;
+  const color = raw.color;
+
+  if(!name)                              errors.name = "Name is required.";
+  else if(name.length > LIMITS.NAME_MAX) errors.name = `Name must be ${LIMITS.NAME_MAX} characters or fewer.`;
+  else {
+    const dup = existingHabits.find(h => h.name.trim().toLowerCase()===name.toLowerCase() && h.id!==editingId);
+    if(dup) errors.name = "You already have a habit with this name.";
+  }
+
+  if(!unit)                              errors.unit = "Unit is required (e.g. cups, pages).";
+  else if(unit.length > LIMITS.UNIT_MAX) errors.unit = `Unit must be ${LIMITS.UNIT_MAX} characters or fewer.`;
+
+  if(isNaN(goal)||goal<LIMITS.GOAL_MIN)  errors.goal = `Goal must be at least ${LIMITS.GOAL_MIN}.`;
+  else if(goal>LIMITS.GOAL_MAX)          errors.goal = `Goal must be ${LIMITS.GOAL_MAX} or less.`;
+
+  if(!VALID_TYPES.has(type))             errors.type = "Invalid type selected.";
+  if(!VALID_ICONS.has(icon))             errors.icon = "Invalid icon selected.";
+  if(!color?.bg || !VALID_COLORS.has(color.bg)) errors.color = "Invalid color selected.";
+
+  if(Object.keys(errors).length) return { ok:false, errors };
+
+  // Return clean sanitized payload — only known safe fields
+  return {
+    ok: true,
+    errors: {},
+    data: {
+      name,
+      unit,
+      goal,
+      type,
+      icon,
+      color: { bg: color.bg },
+    }
+  };
+}
+
+// Auth field validation
+function validateAuth(mode, {name,email,pw}){
+  const errors = {};
+  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+  if(mode==="signup"){
+    const n=(name||"").trim();
+    if(!n)                  errors.name = "Name is required.";
+    else if(n.length<2)     errors.name = "Name must be at least 2 characters.";
+    else if(n.length>60)    errors.name = "Name must be 60 characters or fewer.";
+  }
+
+  const e=(email||"").trim().toLowerCase();
+  if(!e)                    errors.email = "Email is required.";
+  else if(!emailRe.test(e)) errors.email = "Please enter a valid email address.";
+
+  const p=(pw||"");
+  if(!p)                    errors.pw = "Password is required.";
+  else if(p.trim().length===0) errors.pw = "Password cannot be only spaces.";
+  else if(p.length<6)       errors.pw = "Password must be at least 6 characters.";
+  else if(p.length>72)      errors.pw = "Password must be 72 characters or fewer.";
+
+  return { ok: Object.keys(errors).length===0, errors };
+}
+
+// Validate a log entry before writing to DB
+function sanitizeLog(entry){
+  if(!entry || typeof entry !== "object") return {count:0,done:false};
+  const count = Math.max(0, Math.min(9999, parseInt(entry.count)||0));
+  const done  = Boolean(entry.done);
+  return {count, done};
+}
+
+// Validate entire logs object from DB (defensive)
+function sanitizeLogs(raw){
+  if(!raw || typeof raw !== "object") return {};
+  const out = {};
+  const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+  for(const [k,v] of Object.entries(raw)){
+    if(!dateRe.test(k)) continue; // skip malformed keys
+    out[k] = sanitizeLog(v);
+  }
+  return out;
+}
+
+// ── Streak / rate — coerce to boolean defensively ─────────────────────────────
+function calcStreak(rawLogs){
+  const logs = sanitizeLogs(rawLogs);
   let s=0, d=new Date(); d.setHours(0,0,0,0);
   if(!logs[d.toISOString().slice(0,10)]?.done) d.setDate(d.getDate()-1);
   while(true){
     const k=d.toISOString().slice(0,10);
-    if(logs[k]?.done){s++;d.setDate(d.getDate()-1);}else break;
+    if(logs[k]?.done){ s++; d.setDate(d.getDate()-1); } else break;
   }
   return s;
 }
-function calcRate(logs){
+function calcRate(rawLogs){
+  const logs = sanitizeLogs(rawLogs);
   const v=Object.values(logs);
-  return v.length?Math.round(v.filter(e=>e.done).length/v.length*100):0;
+  return v.length ? Math.round(v.filter(e=>e.done).length/v.length*100) : 0;
 }
 
-// ── Supabase habit helpers ────────────────────────────────────────────────────
+// ── Supabase DB layer — always sanitizes before write ─────────────────────────
 const DB = {
   async getHabits(userId){
+    if(!userId) throw new Error("Not authenticated.");
     const {data,error} = await sb.from("habits").select("*").eq("user_id",userId).order("created_at",{ascending:true});
-    if(error) throw error;
-    return (data||[]).map(h=>({...h, logs: h.logs||{}, color: h.color||COLORS[0]}));
+    if(error) throw new Error(error.message);
+    return (data||[]).map(h=>({
+      ...h,
+      goal:  Math.max(1, Math.min(999, parseInt(h.goal)||1)),
+      logs:  sanitizeLogs(h.logs),
+      color: VALID_COLORS.has(h.color?.bg) ? h.color : COLORS[0],
+      icon:  VALID_ICONS.has(h.icon) ? h.icon : "🎯",
+      type:  VALID_TYPES.has(h.type) ? h.type : "checkbox",
+      name:  (h.name||"Unnamed").slice(0,LIMITS.NAME_MAX),
+      unit:  (h.unit||"times").slice(0,LIMITS.UNIT_MAX),
+    }));
   },
-  async upsertHabit(habit){
-    const {error} = await sb.from("habits").upsert(habit);
-    if(error) throw error;
+
+  // Only writes a strictly-typed, sanitized payload — never the raw form object
+  async upsertHabit(userId, id, fields, logs, createdAt){
+    if(!userId) throw new Error("Not authenticated.");
+    if(!id || typeof id !== "string") throw new Error("Invalid habit ID.");
+
+    const payload = {
+      id,
+      user_id:    userId,
+      name:       (fields.name||"").trim().slice(0,LIMITS.NAME_MAX),
+      icon:       VALID_ICONS.has(fields.icon) ? fields.icon : "🎯",
+      color:      VALID_COLORS.has(fields.color?.bg) ? {bg:fields.color.bg} : COLORS[0],
+      type:       VALID_TYPES.has(fields.type) ? fields.type : "checkbox",
+      goal:       Math.max(LIMITS.GOAL_MIN, Math.min(LIMITS.GOAL_MAX, parseInt(fields.goal)||1)),
+      unit:       (fields.unit||"times").trim().slice(0,LIMITS.UNIT_MAX),
+      logs:       sanitizeLogs(logs),
+      created_at: createdAt || todayStr(),
+    };
+
+    const {error} = await sb.from("habits").upsert(payload);
+    if(error) throw new Error(error.message);
+    return payload;
   },
-  async deleteHabit(id){
-    const {error} = await sb.from("habits").delete().eq("id",id);
-    if(error) throw error;
+
+  async deleteHabit(userId, id){
+    if(!userId) throw new Error("Not authenticated.");
+    if(!id) throw new Error("Invalid habit ID.");
+    const {error} = await sb.from("habits").delete().eq("id",id).eq("user_id",userId);
+    if(error) throw new Error(error.message);
   },
 };
 
-// ── Config warning screen ─────────────────────────────────────────────────────
+// ── Config warning ────────────────────────────────────────────────────────────
 function ConfigWarning(){
   return(
     <div className="config-warn">
       <div className="config-box">
         <h2>⚙️ Setup Required</h2>
-        <p>Open this HTML file in a text editor and replace the two placeholder values at the top of the script with your Supabase project credentials.</p>
+        <p>Open this HTML file in a text editor and replace the two placeholder values near the top of the script with your Supabase credentials.</p>
         <div className="config-steps">
           {[
-            {n:1, text:<>Go to <strong>supabase.com</strong> and create a free project</>},
-            {n:2, text:<>In your project go to <strong>Settings → API</strong></>},
-            {n:3, text:<>Copy <strong>Project URL</strong> → paste as <code>SUPABASE_URL</code></>},
-            {n:4, text:<>Copy <strong>anon public</strong> key → paste as <code>SUPABASE_KEY</code></>},
-            {n:5, text:<>Run the SQL from the <strong>setup guide</strong> in SQL Editor</>},
-            {n:6, text:<>Save the file and open it again</>},
+            {n:1,text:<>Go to <strong>supabase.com</strong> → create a free project</>},
+            {n:2,text:<>Open <strong>SQL Editor</strong> → run the setup SQL</>},
+            {n:3,text:<>Go to <strong>Settings → API</strong></>},
+            {n:4,text:<>Copy <strong>Project URL</strong> → paste as <code>SUPABASE_URL</code></>},
+            {n:5,text:<>Copy <strong>anon public</strong> key → paste as <code>SUPABASE_KEY</code></>},
+            {n:6,text:<>Save the file and reopen it</>},
           ].map(s=>(
             <div key={s.n} className="config-step">
               <div className="step-num">{s.n}</div>
@@ -355,25 +490,32 @@ function ConfigWarning(){
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
 function Toast({msg,onDone}){
-  useEffect(()=>{const t=setTimeout(onDone,2800);return()=>clearTimeout(t);},[]);
+  useEffect(()=>{const t=setTimeout(onDone,3000);return()=>clearTimeout(t);},[]);
   return <div className="toast">{msg}</div>;
 }
 
 // ── Confirm modal ─────────────────────────────────────────────────────────────
-function ConfirmModal({msg,onConfirm,onCancel}){
+function ConfirmModal({msg,onConfirm,onCancel,loading}){
   return(
-    <div className="overlay cov" onClick={onCancel}>
+    <div className="overlay cov" onClick={loading?null:onCancel}>
       <div className="modal cov" style={{maxWidth:320}} onClick={e=>e.stopPropagation()}>
-        <div className="modal-title" style={{fontSize:18}}>Confirm</div>
-        <p style={{fontSize:14,color:"var(--muted)",lineHeight:1.6}}>{msg}</p>
+        <div className="modal-title" style={{fontSize:18}}>Are you sure?</div>
+        <p style={{fontSize:14,color:"var(--muted)",lineHeight:1.6,marginBottom:0}}>{msg}</p>
         <div className="mact" style={{marginTop:16}}>
-          <button className="btn btn-ghost" onClick={onCancel}>Cancel</button>
-          <button className="btn btn-danger" onClick={onConfirm}>Delete</button>
+          <button className="btn btn-ghost" onClick={onCancel} disabled={loading}>Cancel</button>
+          <button className="btn btn-danger" onClick={onConfirm} disabled={loading}>
+            {loading?"Deleting…":"Delete"}
+          </button>
         </div>
       </div>
     </div>
   );
 }
+
+// ── Field error component ─────────────────────────────────────────────────────
+const FieldErr = ({msg}) => msg
+  ? <div style={{fontSize:12,color:"var(--danger)",marginTop:5}}>⚠ {msg}</div>
+  : null;
 
 // ── Auth screen ───────────────────────────────────────────────────────────────
 function AuthScreen({onAuth}){
@@ -382,38 +524,48 @@ function AuthScreen({onAuth}){
   const [email,setEmail]=useState("");
   const [pw,setPw]=useState("");
   const [showPw,setShowPw]=useState(false);
-  const [err,setErr]=useState("");
+  const [fieldErrors,setFieldErrors]=useState({});
+  const [apiErr,setApiErr]=useState("");
   const [loading,setLoading]=useState(false);
 
+  const switchMode = m => { setMode(m); setFieldErrors({}); setApiErr(""); };
+
   const submit=async()=>{
-    setErr(""); setLoading(true);
+    setApiErr("");
+    const v = validateAuth(mode,{name,email,pw});
+    if(!v.ok){ setFieldErrors(v.errors); return; }
+    setFieldErrors({});
+    setLoading(true);
     try{
       if(mode==="signup"){
-        if(!name.trim()) return setErr("Please enter your name.");
-        if(!email.includes("@")) return setErr("Please enter a valid email.");
-        if(pw.length<6) return setErr("Password must be at least 6 characters.");
         const {data,error}=await sb.auth.signUp({
-          email:email.trim().toLowerCase(),
-          password:pw,
+          email: email.trim().toLowerCase(),
+          password: pw,
           options:{data:{full_name:name.trim()}}
         });
-        if(error) return setErr(error.message);
-        if(data.user) onAuth(data.user,name.trim());
-        else setErr("Account created! Please check your email to confirm, then sign in.");
+        if(error){ setApiErr(error.message); return; }
+        if(data.user && data.session){
+          onAuth(data.user, name.trim());
+        } else {
+          setApiErr("Account created! Check your email to confirm, then sign in.");
+        }
       } else {
-        if(!email.trim()) return setErr("Please enter your email.");
-        if(!pw.trim()) return setErr("Please enter your password.");
         const {data,error}=await sb.auth.signInWithPassword({
-          email:email.trim().toLowerCase(), password:pw
+          email: email.trim().toLowerCase(),
+          password: pw,
         });
-        if(error) return setErr(error.message);
+        if(error){ setApiErr(error.message); return; }
         onAuth(data.user, data.user.user_metadata?.full_name||data.user.email);
       }
-    }catch(e){setErr(e.message||"Something went wrong.");}
-    finally{setLoading(false);}
+    }catch(e){
+      setApiErr(e.message||"Network error. Please check your connection.");
+    }finally{
+      setLoading(false);
+    }
   };
 
-  const onKey=e=>{ if(e.key==="Enter") submit(); };
+  const onKey=e=>{ if(e.key==="Enter"&&!loading) submit(); };
+  const fi = field => fieldErrors[field] ? "fi fi-err" : "fi";
 
   return(
     <div className="auth-screen">
@@ -424,38 +576,50 @@ function AuthScreen({onAuth}){
         </div>
         <div className="auth-title">{mode==="login"?"Welcome back":"Create account"}</div>
         <div className="auth-sub">{mode==="login"?"Sign in to your habits":"Start building better habits"}</div>
-        {err&&<div className="auth-err">⚠️ {err}</div>}
+
+        {apiErr&&<div className="auth-err">⚠️ {apiErr}</div>}
+
         {mode==="signup"&&(
           <div className="fg">
             <label className="fl">Your Name</label>
-            <input className="fi" placeholder="e.g. Alex Johnson" value={name}
-              onChange={e=>setName(e.target.value)} onKeyDown={onKey} autoFocus/>
+            <input className={fi("name")} placeholder="e.g. Alex Johnson" value={name}
+              onChange={e=>{setName(e.target.value);setFieldErrors(fe=>({...fe,name:""}));}}
+              onKeyDown={onKey} autoFocus maxLength={61}/>
+            <FieldErr msg={fieldErrors.name}/>
           </div>
         )}
+
         <div className="fg">
           <label className="fl">Email</label>
-          <input className="fi" type="email" inputMode="email" placeholder="you@example.com"
-            value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={onKey}
-            autoFocus={mode==="login"}/>
+          <input className={fi("email")} type="email" inputMode="email" placeholder="you@example.com"
+            value={email}
+            onChange={e=>{setEmail(e.target.value);setFieldErrors(fe=>({...fe,email:""}));}}
+            onKeyDown={onKey} autoFocus={mode==="login"}/>
+          <FieldErr msg={fieldErrors.email}/>
         </div>
+
         <div className="fg">
           <label className="fl">Password</label>
           <div className="pw-wrap">
-            <input className="fi" type={showPw?"text":"password"}
+            <input className={fi("pw")} type={showPw?"text":"password"}
               placeholder={mode==="signup"?"Min 6 characters":"Your password"}
-              value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={onKey}
-              style={{paddingRight:48}}/>
+              value={pw}
+              onChange={e=>{setPw(e.target.value);setFieldErrors(fe=>({...fe,pw:""}));}}
+              onKeyDown={onKey} style={{paddingRight:48}} maxLength={73}/>
             <div className="pw-eye" onClick={()=>setShowPw(s=>!s)}>{showPw?"🙈":"👁️"}</div>
           </div>
+          <FieldErr msg={fieldErrors.pw}/>
         </div>
+
         <button className="btn btn-primary btn-full" style={{marginTop:8}}
           onClick={submit} disabled={loading}>
           {loading?"⏳ Please wait…":mode==="login"?"Sign In →":"Create Account →"}
         </button>
+
         <div className="auth-switch">
           {mode==="login"
-            ?<>Don't have an account? <a onClick={()=>{setMode("signup");setErr("");}}>Sign up</a></>
-            :<>Already have an account? <a onClick={()=>{setMode("login");setErr("");}}>Sign in</a></>}
+            ?<>Don't have an account? <a onClick={()=>switchMode("signup")}>Sign up</a></>
+            :<>Already have an account? <a onClick={()=>switchMode("login")}>Sign in</a></>}
         </div>
       </div>
     </div>
@@ -465,9 +629,9 @@ function AuthScreen({onAuth}){
 // ── Profile modal ─────────────────────────────────────────────────────────────
 function ProfileModal({user,userName,habits,onClose,onSignOut}){
   const t=todayStr();
-  const bestStreak=Math.max(0,...habits.map(h=>calcStreak(h.logs)));
+  const bestStreak = habits.length ? Math.max(0,...habits.map(h=>calcStreak(h.logs))) : 0;
   const done=habits.filter(h=>h.logs[t]?.done).length;
-  const ini=initials(userName);
+  const ini=mkInitials(userName);
   return(
     <div className="overlay cov" onClick={onClose}>
       <div className="modal cov" style={{maxWidth:360}} onClick={e=>e.stopPropagation()}>
@@ -489,70 +653,120 @@ function ProfileModal({user,userName,habits,onClose,onSignOut}){
 }
 
 // ── Habit modal ───────────────────────────────────────────────────────────────
-function HabitModal({habit,onSave,onClose}){
+function HabitModal({habit,existingHabits,onSave,onClose}){
   const [form,setForm]=useState(habit||{name:"",icon:"🎯",color:COLORS[0],type:"checkbox",goal:1,unit:"times"});
+  const [goalRaw,setGoalRaw]=useState(String(habit?.goal||1));
+  const [fieldErrors,setFieldErrors]=useState({});
   const [saving,setSaving]=useState(false);
-  const set=(k,v)=>setForm(f=>({...f,[k]:v}));
-  const valid=form.name.trim().length>0;
-  const save=async()=>{
-    if(!valid||saving)return;
-    setSaving(true);
-    await onSave(form);
-    setSaving(false);
+
+  const set=(k,v)=>{
+    setForm(f=>({...f,[k]:v}));
+    setFieldErrors(fe=>({...fe,[k]:""}));
   };
+
+  const save=async()=>{
+    if(saving) return;
+    // Clamp goal before validating
+    const clampedGoal = Math.max(LIMITS.GOAL_MIN, Math.min(LIMITS.GOAL_MAX, parseInt(goalRaw)||1));
+    const toValidate = {...form, goal:clampedGoal};
+    const v = validateHabit(toValidate, existingHabits, habit?.id||null);
+    if(!v.ok){ setFieldErrors(v.errors); return; }
+    setFieldErrors({});
+    setSaving(true);
+    await onSave(v.data); // pass only sanitized data
+    // Note: setSaving(false) not needed — modal unmounts on success,
+    // but on error onSave throws and we catch below
+  };
+
+  const fi = field => fieldErrors[field] ? "fi fi-err" : "fi";
+
   return(
-    <div className="overlay" onClick={onClose}>
+    <div className="overlay" onClick={saving?null:onClose}>
       <div className="modal" onClick={e=>e.stopPropagation()}>
         <div className="modal-handle"/>
         <div className="modal-title">{habit?"Edit Habit":"New Habit"}</div>
+
+        {/* Name */}
         <div className="fg">
           <label className="fl">Name</label>
-          <input className="fi" placeholder="e.g. Drink Water" value={form.name}
+          <input className={fi("name")} placeholder="e.g. Drink Water"
+            value={form.name} maxLength={61}
             onChange={e=>set("name",e.target.value)} autoFocus/>
+          <FieldErr msg={fieldErrors.name}/>
         </div>
+
+        {/* Type */}
         <div className="fg">
           <label className="fl">Type</label>
           <div className="type-row">
-            {["checkbox","counter"].map(t=>(
-              <button key={t} className={`type-opt ${form.type===t?"sel":""}`} onClick={()=>set("type",t)}>
-                {t==="checkbox"?"✓ Checkbox":"⟳ Counter"}
+            {["checkbox","counter"].map(tp=>(
+              <button key={tp} className={`type-opt ${form.type===tp?"sel":""}`} onClick={()=>set("type",tp)}>
+                {tp==="checkbox"?"✓ Checkbox":"⟳ Counter"}
               </button>
             ))}
           </div>
+          <FieldErr msg={fieldErrors.type}/>
         </div>
+
+        {/* Goal + Unit */}
         <div className="form-row">
           <div className="fg" style={{marginBottom:0}}>
-            <label className="fl">Daily Goal</label>
-            <input className="fi" type="number" inputMode="numeric" min="1"
-              value={form.goal} onChange={e=>set("goal",parseInt(e.target.value)||1)}/>
+            <label className="fl">Daily Goal <span style={{color:"var(--muted)",fontWeight:400,textTransform:"none",fontSize:10}}>(1–999)</span></label>
+            <input className={fi("goal")} type="text" inputMode="numeric" pattern="[0-9]*"
+              placeholder="e.g. 8"
+              value={goalRaw}
+              onChange={e=>{
+                const raw=e.target.value.replace(/[^0-9]/g,"");
+                setGoalRaw(raw);
+                const n=parseInt(raw);
+                if(n>=LIMITS.GOAL_MIN && n<=LIMITS.GOAL_MAX){
+                  set("goal",n);
+                }
+              }}
+              onBlur={()=>{
+                const n=Math.max(LIMITS.GOAL_MIN, Math.min(LIMITS.GOAL_MAX, parseInt(goalRaw)||1));
+                setGoalRaw(String(n));
+                set("goal",n);
+              }}/>
+            <FieldErr msg={fieldErrors.goal}/>
           </div>
           <div className="fg" style={{marginBottom:0}}>
             <label className="fl">Unit</label>
-            <input className="fi" placeholder="cups, pages…" value={form.unit}
+            <input className={fi("unit")} placeholder="cups, pages…"
+              value={form.unit} maxLength={21}
               onChange={e=>set("unit",e.target.value)}/>
+            <FieldErr msg={fieldErrors.unit}/>
           </div>
         </div>
+
+        {/* Icon */}
         <div className="fg" style={{marginTop:14}}>
           <label className="fl">Icon</label>
           <div className="icon-grid">
             {ICONS.map(ic=>(
-              <button key={ic} className={`icon-opt ${form.icon===ic?"sel":""}`} onClick={()=>set("icon",ic)}>{ic}</button>
+              <button key={ic} className={`icon-opt ${form.icon===ic?"sel":""}`}
+                onClick={()=>set("icon",ic)}>{ic}</button>
             ))}
           </div>
+          <FieldErr msg={fieldErrors.icon}/>
         </div>
+
+        {/* Color */}
         <div className="fg">
           <label className="fl">Color</label>
           <div className="color-grid">
             {COLORS.map((c,i)=>(
-              <div key={i} className={`color-opt ${form.color.bg===c.bg?"sel":""}`}
+              <div key={i} className={`color-opt ${form.color?.bg===c.bg?"sel":""}`}
                 style={{background:c.bg}} onClick={()=>set("color",c)}/>
             ))}
           </div>
+          <FieldErr msg={fieldErrors.color}/>
         </div>
+
         <div className="mact">
-          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" disabled={!valid||saving} onClick={save}>
-            {saving?"Saving…":habit?"Save":"Add Habit"}
+          <button className="btn btn-ghost" onClick={onClose} disabled={saving}>Cancel</button>
+          <button className="btn btn-primary" disabled={saving} onClick={save}>
+            {saving?"Saving…":habit?"Save Changes":"Add Habit"}
           </button>
         </div>
       </div>
@@ -562,56 +776,60 @@ function HabitModal({habit,onSave,onClose}){
 
 // ── Habit card ────────────────────────────────────────────────────────────────
 function HabitCard({habit,onUpdate,onDelete,onEdit}){
-  const t=todayStr();
-  const log=habit.logs[t]||{count:0,done:false};
-  const streak=calcStreak(habit.logs);
-  const rate=calcRate(habit.logs);
-  const pct=Math.min(100,Math.round(log.count/habit.goal*100));
+  const t = todayStr();
+  // Defensive: sanitize log from whatever is in state
+  const rawLog = habit.logs?.[t];
+  const log = sanitizeLog(rawLog);
+  const goal = Math.max(1, Math.min(LIMITS.GOAL_MAX, parseInt(habit.goal)||1));
+  const streak = calcStreak(habit.logs);
+  const rate   = calcRate(habit.logs);
+  const pct    = Math.min(100, Math.max(0, Math.round(log.count / goal * 100)));
+  const color  = VALID_COLORS.has(habit.color?.bg) ? habit.color.bg : "#e76f51";
 
   const inc=()=>{
-    if(log.done)return;
-    const nc=log.count+1;
-    onUpdate({...habit,logs:{...habit.logs,[t]:{count:nc,done:nc>=habit.goal}}});
+    if(log.done) return;
+    const nc = Math.min(log.count+1, LIMITS.GOAL_MAX * 2); // cap at 2× goal max
+    onUpdate({...habit, logs:{...habit.logs, [t]:{count:nc, done:nc>=goal}}});
   };
   const dec=()=>{
-    if(log.count===0)return;
-    const nc=log.count-1;
-    onUpdate({...habit,logs:{...habit.logs,[t]:{count:nc,done:nc>=habit.goal}}});
+    if(log.count<=0) return;
+    const nc = log.count - 1;
+    onUpdate({...habit, logs:{...habit.logs, [t]:{count:nc, done:nc>=goal}}});
   };
   const toggle=()=>{
-    if(habit.type!=="checkbox")return;
-    const nd=!log.done;
-    onUpdate({...habit,logs:{...habit.logs,[t]:{count:nd?1:0,done:nd}}});
+    if(habit.type!=="checkbox") return;
+    const nd = !log.done;
+    onUpdate({...habit, logs:{...habit.logs, [t]:{count:nd?1:0, done:nd}}});
   };
 
   const last30=Array.from({length:30},(_,i)=>{
     const d=new Date(); d.setDate(d.getDate()-(29-i));
-    return habit.logs[d.toISOString().slice(0,10)];
+    return sanitizeLog(habit.logs?.[d.toISOString().slice(0,10)]);
   });
 
   return(
     <div className="card">
-      <div className="card-bar" style={{background:habit.color?.bg||"#e76f51"}}/>
+      <div className="card-bar" style={{background:color}}/>
       <div className="card-top">
-        <div className="card-icon">{habit.icon}</div>
+        <div className="card-icon">{habit.icon||"🎯"}</div>
         <div className="card-actions">
           <div className="ibt" onClick={()=>onEdit(habit)}>✎</div>
           <div className="ibt del" onClick={()=>onDelete(habit.id)}>✕</div>
         </div>
       </div>
       <div className="card-name">{habit.name}</div>
-      <div className="card-sub">Goal: {habit.goal} {habit.unit}/day</div>
+      <div className="card-sub">Goal: {goal} {habit.unit}/day</div>
       <div className="prog-wrap">
-        <div className="prog-lbl"><span>Progress</span><strong>{log.count}/{habit.goal}</strong></div>
+        <div className="prog-lbl"><span>Progress</span><strong>{log.count}/{goal}</strong></div>
         <div className="prog-bar">
-          <div className="prog-fill" style={{width:`${pct}%`,background:log.done?"var(--success)":habit.color?.bg||"#e76f51"}}/>
+          <div className="prog-fill" style={{width:`${pct}%`,background:log.done?"var(--success)":color}}/>
         </div>
       </div>
       {habit.type==="counter"?(
         <div className="ctr-row">
-          <button className="ctr-btn" onClick={dec}>−</button>
+          <button className="ctr-btn" onClick={dec} disabled={log.count<=0}>−</button>
           <div className="ctr-val" style={{color:log.done?"var(--success)":"var(--text)"}}>{log.count}</div>
-          <button className="ctr-btn" onClick={inc}>+</button>
+          <button className="ctr-btn" onClick={inc} disabled={log.done}>+</button>
           <div className="ctr-unit">{habit.unit}</div>
         </div>
       ):(
@@ -626,7 +844,7 @@ function HabitCard({habit,onUpdate,onDelete,onEdit}){
       <div className="mini-log">
         {last30.map((e,i)=>(
           <div key={i} className="mini-day" style={{
-            background:!e?"var(--s2)":e.done?"var(--success)":e.count>0?(habit.color?.bg||"#e76f51")+"88":"var(--s2)"
+            background:e.count===0?"var(--s2)":e.done?"var(--success)":color+"88"
           }}/>
         ))}
       </div>
@@ -644,14 +862,16 @@ function CalendarView({habits}){
   const firstDay=new Date(yr,mo,1).getDay();
   const dim=new Date(yr,mo+1,0).getDate();
   const t=todayStr();
+
   const getInfo=day=>{
     const k=`${yr}-${String(mo+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
-    if(k>t)return{k,cls:"",rate:null};
+    if(k>t) return{k,cls:"",rate:null};
     let total=0,done=0;
-    habits.forEach(h=>{total++;if(h.logs[k]?.done)done++;});
+    habits.forEach(h=>{ total++; if(sanitizeLog(h.logs?.[k]).done) done++; });
     const rate=total?Math.round(done/total*100):null;
     return{k,cls:rate===null?"":rate===100?"done":rate>0?"partial":"missed",rate};
   };
+
   return(
     <div>
       <div className="cal-layout">
@@ -691,17 +911,18 @@ function CalendarView({habits}){
             <>
               <div style={{fontFamily:"var(--ff-d)",fontSize:16,marginBottom:4}}>{fmtDate(sel)}</div>
               {habits.map(h=>{
-                const log=h.logs[sel];
+                const log=sanitizeLog(h.logs?.[sel]);
+                const goal=Math.max(1,parseInt(h.goal)||1);
                 return(
                   <div key={h.id} className="cal-dc">
-                    <span style={{fontSize:20}}>{h.icon}</span>
+                    <span style={{fontSize:20}}>{h.icon||"🎯"}</span>
                     <div style={{flex:1}}>
                       <div style={{fontWeight:600,fontSize:14}}>{h.name}</div>
                       <div style={{fontSize:12,color:"var(--muted)",marginTop:2}}>
-                        {log?`${log.count}/${h.goal} ${h.unit}`:"Not logged"}
+                        {log.count>0?`${log.count}/${goal} ${h.unit}`:"Not logged"}
                       </div>
                     </div>
-                    <div style={{fontSize:18}}>{log?.done?"✅":log?.count>0?"⚡":"⬜"}</div>
+                    <div style={{fontSize:18}}>{log.done?"✅":log.count>0?"⚡":"⬜"}</div>
                   </div>
                 );
               })}
@@ -718,17 +939,19 @@ function CalendarView({habits}){
 // ── Analytics view ────────────────────────────────────────────────────────────
 function AnalyticsView({habits}){
   const t=todayStr();
-  const completedToday=habits.filter(h=>h.logs[t]?.done).length;
-  const bestStreak=Math.max(0,...habits.map(h=>calcStreak(h.logs)));
+  const completedToday=habits.filter(h=>sanitizeLog(h.logs?.[t]).done).length;
+  const bestStreak = habits.length ? Math.max(0,...habits.map(h=>calcStreak(h.logs))) : 0;
   const avgRate=habits.length?Math.round(habits.reduce((s,h)=>s+calcRate(h.logs),0)/habits.length):0;
+
   const last14=Array.from({length:14},(_,i)=>{
     const d=new Date(); d.setDate(d.getDate()-(13-i));
     const k=d.toISOString().slice(0,10);
-    const done=habits.filter(h=>h.logs[k]?.done).length;
+    const done=habits.filter(h=>sanitizeLog(h.logs?.[k]).done).length;
     const pct=habits.length?Math.round(done/habits.length*100):0;
     return{k,label:d.toLocaleDateString("en-US",{month:"short",day:"numeric"}),pct};
   });
   const maxPct=Math.max(...last14.map(d=>d.pct),1);
+
   return(
     <div>
       <div className="stats-grid">
@@ -744,6 +967,7 @@ function AnalyticsView({habits}){
           </div>
         ))}
       </div>
+
       <div style={{marginBottom:24}}>
         <div className="sec-title">14-Day Overview</div>
         <div className="cal-wrap" style={{padding:"16px 16px 12px"}}>
@@ -766,19 +990,21 @@ function AnalyticsView({habits}){
           </div>
         </div>
       </div>
+
       <div className="sec-title">Habit Breakdown</div>
       <div style={{display:"flex",flexDirection:"column",gap:10}}>
         {habits.map(h=>{
           const streak=calcStreak(h.logs),rate=calcRate(h.logs);
+          const color=VALID_COLORS.has(h.color?.bg)?h.color.bg:"#e76f51";
           return(
             <div key={h.id} className="card" style={{display:"flex",alignItems:"center",gap:14,padding:16}}>
-              <span style={{fontSize:24,flexShrink:0}}>{h.icon}</span>
+              <span style={{fontSize:24,flexShrink:0}}>{h.icon||"🎯"}</span>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontWeight:600,marginBottom:5,fontSize:14}}>{h.name}</div>
-                <div className="prog-bar"><div className="prog-fill" style={{width:`${rate}%`,background:h.color?.bg||"#e76f51"}}/></div>
+                <div className="prog-bar"><div className="prog-fill" style={{width:`${rate}%`,background:color}}/></div>
               </div>
               <div style={{textAlign:"right",flexShrink:0}}>
-                <div style={{fontSize:16,fontWeight:700,color:h.color?.bg||"#e76f51"}}>{rate}%</div>
+                <div style={{fontSize:16,fontWeight:700,color}}>{rate}%</div>
                 <div style={{fontSize:11,color:"var(--muted)"}}>🔥 {streak}d</div>
               </div>
             </div>
@@ -793,33 +1019,45 @@ function AnalyticsView({habits}){
 function App(){
   if(!isConfigured) return <ConfigWarning/>;
 
-  const [user,setUser]=useState(null);
-  const [userName,setUserName]=useState("");
-  const [habits,setHabits]=useState([]);
-  const [view,setView]=useState("today");
-  const [modal,setModal]=useState(null);
-  const [confirm,setConfirm]=useState(null);
-  const [toast,setToast]=useState(null);
-  const [showProfile,setShowProfile]=useState(false);
-  const [loading,setLoading]=useState(true);
-  const [saving,setSaving]=useState(false);
+  const [user,setUser]           = useState(null);
+  const [userName,setUserName]   = useState("");
+  const [habits,setHabits]       = useState([]);
+  const [view,setView]           = useState("today");
+  const [modal,setModal]         = useState(null);   // null | "add" | habit-obj
+  const [confirm,setConfirm]     = useState(null);
+  const [confirmLoading,setConfirmLoading] = useState(false);
+  const [toast,setToast]         = useState(null);
+  const [showProfile,setShowProfile] = useState(false);
+  const [appLoading,setAppLoading]   = useState(true);
+  const [habitsLoading,setHabitsLoading] = useState(false);
+  const [offline,setOffline]     = useState(!navigator.onLine);
 
-  const showToast=msg=>setToast(msg);
-  const t=todayStr();
+  const showToast = msg => setToast(msg);
+  const t = todayStr();
 
-  // ── Auth session check ──
+  // ── Online/offline detection ──
+  useEffect(()=>{
+    const on  = ()=>setOffline(false);
+    const off = ()=>setOffline(true);
+    window.addEventListener("online",on);
+    window.addEventListener("offline",off);
+    return()=>{ window.removeEventListener("online",on); window.removeEventListener("offline",off); };
+  },[]);
+
+  // ── Auth session ──
   useEffect(()=>{
     sb.auth.getSession().then(({data:{session}})=>{
       if(session?.user){
         setUser(session.user);
-        setUserName(session.user.user_metadata?.full_name||session.user.email);
+        setUserName(session.user.user_metadata?.full_name||session.user.email||"");
       }
-      setLoading(false);
-    });
-    const{data:{subscription}}=sb.auth.onAuthStateChange((_,session)=>{
+      setAppLoading(false);
+    }).catch(()=>setAppLoading(false));
+
+    const {data:{subscription}} = sb.auth.onAuthStateChange((_,session)=>{
       if(session?.user){
         setUser(session.user);
-        setUserName(session.user.user_metadata?.full_name||session.user.email);
+        setUserName(session.user.user_metadata?.full_name||session.user.email||"");
       } else {
         setUser(null); setHabits([]);
       }
@@ -827,57 +1065,81 @@ function App(){
     return()=>subscription.unsubscribe();
   },[]);
 
-  // ── Load habits when user is set ──
+  // ── Load habits ──
   useEffect(()=>{
-    if(!user)return;
-    DB.getHabits(user.id).then(setHabits).catch(e=>showToast("⚠️ "+e.message));
+    if(!user) return;
+    setHabitsLoading(true);
+    DB.getHabits(user.id)
+      .then(setHabits)
+      .catch(e=>showToast("⚠️ Could not load habits: "+e.message))
+      .finally(()=>setHabitsLoading(false));
   },[user]);
 
-  const handleAuth=(u,name)=>{setUser(u);setUserName(name);}
+  const handleAuth=(u,name)=>{ setUser(u); setUserName(name); };
 
   const handleSignOut=async()=>{
-    await sb.auth.signOut();
+    try{ await sb.auth.signOut(); }catch(e){ showToast("⚠️ Sign out error: "+e.message); }
     setUser(null); setHabits([]); setShowProfile(false);
   };
 
-  // ── Habit CRUD ──
-  const saveHabit=async(form)=>{
+  // ── Save habit — only closes modal on success ──
+  const saveHabit = async(sanitizedData) => {
+    if(!user){ showToast("⚠️ Not signed in."); return; }
+    if(offline){ showToast("⚠️ You're offline. Connect and try again."); return; }
     try{
       if(modal==="add"){
-        const h={...form,id:"h"+Date.now(),user_id:user.id,created_at:t,logs:{}};
-        await DB.upsertHabit(h);
-        setHabits(hs=>[...hs,h]);
+        const id = "h"+Date.now();
+        const saved = await DB.upsertHabit(user.id, id, sanitizedData, {}, t);
+        setHabits(hs=>[...hs, {...saved, logs:{}}]);
         showToast("✨ Habit added!");
       } else {
-        const updated={...modal,...form,logs:modal.logs,user_id:user.id};
-        await DB.upsertHabit(updated);
-        setHabits(hs=>hs.map(h=>h.id===modal.id?updated:h));
+        const saved = await DB.upsertHabit(user.id, modal.id, sanitizedData, modal.logs||{}, modal.created_at||t);
+        setHabits(hs=>hs.map(h=>h.id===modal.id ? {...h,...saved,logs:h.logs} : h));
         showToast("✏️ Habit updated!");
       }
-    }catch(e){showToast("⚠️ "+e.message);}
-    setModal(null);
+      setModal(null); // only close on success
+    }catch(e){
+      showToast("⚠️ Save failed: "+e.message);
+      // modal stays open so user doesn't lose their edits
+    }
   };
 
-  const deleteHabit=id=>{
+  // ── Delete habit ──
+  const deleteHabit = id => {
     setConfirm({
-      msg:"Delete this habit? This cannot be undone.",
-      onConfirm:async()=>{
+      msg:"Delete this habit? All its history will be permanently lost.",
+      onConfirm: async()=>{
+        if(!user){ showToast("⚠️ Not signed in."); return; }
+        setConfirmLoading(true);
         try{
-          await DB.deleteHabit(id);
+          await DB.deleteHabit(user.id, id);
           setHabits(hs=>hs.filter(h=>h.id!==id));
-          showToast("🗑️ Deleted.");
-        }catch(e){showToast("⚠️ "+e.message);}
-        setConfirm(null);
+          showToast("🗑️ Habit deleted.");
+          setConfirm(null);
+        }catch(e){
+          showToast("⚠️ Delete failed: "+e.message);
+        }finally{
+          setConfirmLoading(false);
+        }
       }
     });
   };
 
-  // Optimistic update — save to Supabase in background
-  const updateHabit=useCallback(updated=>{
+  // ── Optimistic update with rollback on failure ──
+  const updateHabit = useCallback(updated=>{
+    if(!user) return;
+    const previous = habits.find(h=>h.id===updated.id);
+    // Immediately update UI
     setHabits(hs=>hs.map(h=>h.id===updated.id?updated:h));
     if(updated.logs[t]?.done) showToast(`✅ ${updated.name} done!`);
-    DB.upsertHabit({...updated,user_id:user.id}).catch(e=>showToast("⚠️ Sync error: "+e.message));
-  },[t,user]);
+    // Persist in background
+    DB.upsertHabit(user.id, updated.id, updated, updated.logs||{}, updated.created_at||t)
+      .catch(e=>{
+        // Rollback UI to previous state
+        if(previous) setHabits(hs=>hs.map(h=>h.id===updated.id?previous:h));
+        showToast("⚠️ Sync failed, reverted. "+e.message);
+      });
+  },[t, user, habits]);
 
   const navItems=[
     {key:"today",label:"Today",icon:"☀️"},
@@ -890,23 +1152,33 @@ function App(){
     calendar:"Track your progress over time",
     analytics:"Insights into your habits",
   };
-  const completedToday=habits.filter(h=>h.logs[t]?.done).length;
-  const totalStreak=habits.reduce((s,h)=>s+calcStreak(h.logs),0);
-  const ini=initials(userName);
+  const completedToday = habits.filter(h=>sanitizeLog(h.logs?.[t]).done).length;
+  const totalStreak    = habits.length ? habits.reduce((s,h)=>s+calcStreak(h.logs),0) : 0;
+  const ini = mkInitials(userName);
 
-  if(loading) return(
+  if(appLoading) return(
     <div className="loading-screen">
       <h1>Habitual</h1>
       <div className="spinner"/>
     </div>
   );
-
   if(!user) return <AuthScreen onAuth={handleAuth}/>;
 
   return(
     <div className="app">
+      {/* Offline banner */}
+      {offline&&(
+        <div style={{
+          position:"fixed",top:0,left:0,right:0,zIndex:999,
+          background:"var(--danger)",color:"#fff",
+          textAlign:"center",fontSize:13,fontWeight:600,padding:"8px 16px"
+        }}>
+          ⚠️ You're offline — changes won't save until you reconnect
+        </div>
+      )}
+
       {/* Sidebar */}
-      <div className="sidebar">
+      <div className="sidebar" style={{marginTop:offline?36:0}}>
         <div className="sb-brand">
           <h1>Habitual</h1>
           <p>Build better every day</p>
@@ -932,7 +1204,7 @@ function App(){
       </div>
 
       {/* Main */}
-      <div className="main">
+      <div className="main" style={{marginTop:offline?36:0}}>
         {/* Mobile topbar */}
         <div className="m-top">
           <div>
@@ -955,7 +1227,12 @@ function App(){
 
         <div className="content">
           {view==="today"&&(
-            habits.length===0?(
+            habitsLoading?(
+              <div style={{textAlign:"center",padding:"60px 20px"}}>
+                <div className="spinner" style={{margin:"0 auto"}}/>
+                <p style={{color:"var(--muted)",marginTop:16,fontSize:14}}>Loading your habits…</p>
+              </div>
+            ):habits.length===0?(
               <div className="empty">
                 <div className="empty-icon">🌱</div>
                 <h3>No habits yet</h3>
@@ -979,7 +1256,7 @@ function App(){
         <button className="fab" onClick={()=>setModal("add")} aria-label="Add habit">+</button>
       )}
 
-      <nav className="bnav">
+      <nav className="bnav" style={{bottom:offline?0:0}}>
         <div className="bnav-inner">
           {navItems.map(n=>(
             <div key={n.key} className={`bnav-item ${view===n.key?"active":""}`} onClick={()=>setView(n.key)}>
@@ -990,16 +1267,31 @@ function App(){
         </div>
       </nav>
 
-      {modal&&<HabitModal habit={modal==="add"?null:modal} onSave={saveHabit} onClose={()=>setModal(null)}/>}
-      {confirm&&<ConfirmModal msg={confirm.msg} onConfirm={confirm.onConfirm} onCancel={()=>setConfirm(null)}/>}
-      {showProfile&&<ProfileModal user={user} userName={userName} habits={habits} onClose={()=>setShowProfile(false)} onSignOut={handleSignOut}/>}
+      {modal&&(
+        <HabitModal
+          habit={modal==="add"?null:modal}
+          existingHabits={habits}
+          onSave={saveHabit}
+          onClose={()=>setModal(null)}/>
+      )}
+      {confirm&&(
+        <ConfirmModal
+          msg={confirm.msg}
+          loading={confirmLoading}
+          onConfirm={confirm.onConfirm}
+          onCancel={()=>!confirmLoading&&setConfirm(null)}/>
+      )}
+      {showProfile&&(
+        <ProfileModal user={user} userName={userName} habits={habits}
+          onClose={()=>setShowProfile(false)} onSignOut={handleSignOut}/>
+      )}
       {toast&&<Toast msg={toast} onDone={()=>setToast(null)}/>}
     </div>
   );
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
-</script>
+</script></script>
 
 </body>
 </html>
