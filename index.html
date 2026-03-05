@@ -282,10 +282,16 @@ const SUPABASE_KEY  = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 // ─────────────────────────────────────────────────────────────────────────────
 
 const { useState, useEffect, useCallback, useRef } = React;
-const isConfigured = SUPABASE_URL !== "https://peocbejeapqvegiuiaee.supabase.co" && SUPABASE_KEY !== "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBlb2NiZWplYXBxdmVnaXVpYWVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2OTQ3ODAsImV4cCI6MjA4ODI3MDc4MH0.RsGHEwJP3OzdusJlZoV5vFa6qZ0CPMPgJkIOwS3AfnQ";
-const sb = isConfigured ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+const isConfigured =
+  SUPABASE_URL &&
+  SUPABASE_URL.includes("supabase.co") &&
+  SUPABASE_KEY &&
+  SUPABASE_KEY.length > 20;
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+const sb = isConfigured
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+  : null;
+  // ── Constants ─────────────────────────────────────────────────────────────────
 const COLORS = [
   {bg:"#e76f51"},{bg:"#2a9d8f"},{bg:"#e9c46a"},{bg:"#457b9d"},
   {bg:"#f4a261"},{bg:"#8ecae6"},{bg:"#b5838d"},{bg:"#6a994e"},
