@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>Habitual</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap"/>
+<!-- React -->
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<!-- Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{background:#0d0c0b;overscroll-behavior:none}
+:root{
+  --bg:#0d0c0b;--s1:#181614;--s2:#211f1c;--s3:#2a2724;
+  --border:#332f2b;--text:#f2ede7;--muted:#7a746b;
+  --accent:#e8c97e;--accent2:#c4a45a;--danger:#e76f51;--success:#2a9d8f;
+  --ff-d:'DM Serif Display',Georgia,serif;
+  --ff-b:'DM Sans',system-ui,sans-serif;
+  --bnav:64px;--safe:env(safe-area-inset-bottom,0px);--r:14px;
+}
+.app{font-family:var(--ff-b);background:var(--bg);min-height:100dvh;color:var(--text);display:flex}
+/* Sidebar */
+.sidebar{width:230px;flex-shrink:0;background:var(--s1);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:28px 0;position:sticky;top:0;height:100vh;overflow-y:auto}
+.sb-brand{padding:0 24px 24px;border-bottom:1px solid var(--border);margin-bottom:18px}
+.sb-brand h1{font-family:var(--ff-d);font-size:21px;color:var(--accent);line-height:1}
+.sb-brand p{font-size:11px;color:var(--muted);margin-top:5px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:11px 24px;cursor:pointer;font-size:13.5px;font-weight:500;color:var(--muted);transition:all .15s;border-left:2px solid transparent;user-select:none;-webkit-tap-highlight-color:transparent}
+.nav-item:hover{color:var(--text);background:var(--s2)}
+.nav-item.active{color:var(--accent);border-left-color:var(--accent);background:rgba(232,201,126,.06)}
+.sb-foot{margin-top:auto;padding:18px 24px 0;border-top:1px solid var(--border)}
+.sb-stat{font-size:11px;color:var(--muted);margin-bottom:5px}
+.sb-stat span{color:var(--accent);font-weight:600;font-size:13px}
+.user-chip{display:flex;align-items:center;gap:10px;padding:12px 24px;margin-top:4px;border-top:1px solid var(--border);cursor:pointer}
+.u-av{width:32px;height:32px;border-radius:50%;background:var(--accent);color:#1a1600;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.u-info{flex:1;min-width:0}
+.u-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.u-email{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Mobile topbar */
+.m-top{display:none;position:sticky;top:0;z-index:50;background:var(--bg);border-bottom:1px solid var(--border);padding:12px 16px;align-items:center;justify-content:space-between}
+.m-top-title{font-family:var(--ff-d);font-size:21px}
+.m-top-sub{font-size:11px;color:var(--muted);margin-top:1px}
+.m-av{width:34px;height:34px;border-radius:50%;background:var(--accent);color:#1a1600;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent}
+/* Bottom nav */
+.bnav{display:none;position:fixed;bottom:0;left:0;right:0;z-index:90;background:var(--s1);border-top:1px solid var(--border);flex-direction:column;height:calc(var(--bnav) + var(--safe));padding-bottom:var(--safe)}
+.bnav-inner{display:flex;height:var(--bnav)}
+.bnav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;color:var(--muted);font-size:10px;font-weight:600;letter-spacing:.3px;text-transform:uppercase;-webkit-tap-highlight-color:transparent;user-select:none;transition:color .15s}
+.bnav-item .bni{font-size:20px;line-height:1}
+.bnav-item.active{color:var(--accent)}
+.bnav-item:active{opacity:.6}
+/* FAB */
+.fab{display:none;position:fixed;bottom:calc(var(--bnav) + var(--safe) + 16px);right:18px;z-index:80;width:54px;height:54px;border-radius:50%;background:var(--accent);color:#1a1600;border:none;font-size:26px;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(232,201,126,.35);cursor:pointer;transition:transform .18s;-webkit-tap-highlight-color:transparent}
+.fab:active{transform:scale(.9)}
+/* Main */
+.main{flex:1;overflow-y:auto;min-width:0}
+.hdr{padding:32px 36px 0;display:flex;justify-content:space-between;align-items:flex-start}
+.hdr-title{font-family:var(--ff-d);font-size:32px;letter-spacing:-.5px}
+.hdr-sub{font-size:13px;color:var(--muted);margin-top:4px}
+.content{padding:24px 36px 48px}
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 20px;border:none;border-radius:10px;font-family:var(--ff-b);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;user-select:none;-webkit-tap-highlight-color:transparent;min-height:42px;white-space:nowrap}
+.btn:active{transform:scale(.96)}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.btn-primary{background:var(--accent);color:#1a1600}
+.btn-primary:hover{background:var(--accent2)}
+.btn-ghost{background:var(--s2);color:var(--text);border:1px solid var(--border)}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+.btn-danger{background:rgba(231,111,81,.15);color:var(--danger);border:1px solid rgba(231,111,81,.3)}
+.btn-sm{padding:7px 14px;font-size:12px;min-height:36px}
+.btn-full{width:100%}
+/* Card */
+.card{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:20px;transition:border-color .2s,box-shadow .2s,transform .2s;position:relative;overflow:hidden}
+.card:hover{border-color:rgba(232,201,126,.25);transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,0,0,.3)}
+.card-bar{position:absolute;top:0;left:0;right:0;height:3px}
+.card-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px}
+.card-icon{font-size:28px;line-height:1}
+.card-actions{display:flex;gap:6px;opacity:0;transition:opacity .15s}
+.card:hover .card-actions{opacity:1}
+.ibt{width:34px;height:34px;border:1px solid var(--border);background:var(--s2);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;transition:all .15s;color:var(--muted);-webkit-tap-highlight-color:transparent}
+.ibt:hover{border-color:var(--accent);color:var(--accent)}
+.ibt.del:hover{border-color:var(--danger);color:var(--danger)}
+.ibt:active{transform:scale(.88)}
+.card-name{font-size:17px;font-weight:600;margin-bottom:2px}
+.card-sub{font-size:12px;color:var(--muted)}
+/* Progress */
+.prog-wrap{margin:14px 0}
+.prog-lbl{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:6px}
+.prog-lbl strong{color:var(--text);font-size:14px}
+.prog-bar{height:7px;background:var(--s2);border-radius:99px;overflow:hidden}
+.prog-fill{height:100%;border-radius:99px;transition:width .45s cubic-bezier(.4,0,.2,1)}
+/* Counter */
+.ctr-row{display:flex;align-items:center;gap:10px;margin-top:12px}
+.ctr-btn{width:40px;height:40px;border-radius:10px;border:1px solid var(--border);background:var(--s2);color:var(--text);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;font-weight:600;flex-shrink:0;-webkit-tap-highlight-color:transparent;user-select:none}
+.ctr-btn:hover{border-color:var(--accent);color:var(--accent)}
+.ctr-btn:active{transform:scale(.9);background:rgba(232,201,126,.1)}
+.ctr-val{font-size:26px;font-weight:700;min-width:52px;text-align:center}
+.ctr-unit{font-size:12px;color:var(--muted)}
+/* Done btn */
+.done-btn{width:100%;padding:11px;border-radius:10px;border:1.5px solid var(--border);background:transparent;color:var(--muted);font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;margin-top:12px;font-family:var(--ff-b);min-height:44px;-webkit-tap-highlight-color:transparent}
+.done-btn.done{background:rgba(42,157,143,.15);border-color:var(--success);color:var(--success)}
+.done-btn:not(.done):hover{border-color:var(--accent);color:var(--accent)}
+.done-btn:active{transform:scale(.98)}
+/* Badges */
+.badge-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.badge{font-size:11px;padding:3px 8px;border-radius:99px;background:var(--s2);color:var(--muted);display:flex;align-items:center;gap:4px;border:1px solid var(--border)}
+.badge.st{color:#f4a261;border-color:rgba(244,162,97,.3);background:rgba(244,162,97,.08)}
+.badge.rt{color:var(--success);border-color:rgba(42,157,143,.3);background:rgba(42,157,143,.08)}
+.mini-log{display:flex;gap:3px;flex-wrap:wrap;margin-top:8px}
+.mini-day{width:11px;height:11px;border-radius:3px}
+.freq-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;text-transform:uppercase;letter-spacing:.4px}
+.freq-badge.weekly{background:rgba(138,202,230,.12);color:#8ecae6;border:1px solid rgba(138,202,230,.3)}
+.freq-badge.biweekly{background:rgba(180,131,141,.12);color:#b5838d;border:1px solid rgba(180,131,141,.3)}
+.freq-badge.daily{background:rgba(42,157,143,.08);color:var(--success);border:1px solid rgba(42,157,143,.2)}
+.freq-badge.monthly{background:rgba(233,196,106,.1);color:#e9c46a;border:1px solid rgba(233,196,106,.3)}
+.period-mini{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap}
+.period-sq{width:18px;height:18px;border-radius:4px}
+.view-tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.view-tab{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);color:var(--muted);background:var(--s2);transition:all .15s;-webkit-tap-highlight-color:transparent}
+.view-tab.active{border-color:var(--accent);color:var(--accent);background:rgba(232,201,126,.08)}
+/* Grid */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+/* Calendar */
+.cal-wrap{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.cal-hdr{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px}
+.cal-month{font-family:var(--ff-d);font-size:18px}
+.cal-nav{display:flex;gap:6px;flex-shrink:0}
+.cal-grid{padding:14px 16px 16px}
+.cal-dh{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:3px}
+.cal-dn{text-align:center;font-size:11px;color:var(--muted);font-weight:600;padding:4px 0}
+.cal-days{display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:42px;gap:3px;align-items:stretch}
+.cal-day{border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:12px;font-weight:500;transition:all .15s;background:var(--s2);border:1px solid transparent;-webkit-tap-highlight-color:transparent;user-select:none;overflow:hidden}
+.cal-day:active{transform:scale(.88)}
+.cal-day.today{border-color:var(--accent)!important;color:var(--accent)}
+.cal-day.empty{background:transparent;pointer-events:none}
+.cal-day.done{background:rgba(42,157,143,.25);border-color:rgba(42,157,143,.4)}
+.cal-day.partial{background:rgba(232,201,126,.15);border-color:rgba(232,201,126,.3)}
+.cal-day.missed{background:rgba(231,111,81,.1);border-color:rgba(231,111,81,.2)}
+.cal-dot{width:4px;height:4px;border-radius:50%;margin-top:2px}
+.cal-leg{padding:0 16px 14px;display:flex;gap:14px;font-size:11px;color:var(--muted);flex-wrap:wrap}
+.cal-layout{display:grid;grid-template-columns:1fr 300px;gap:16px}
+.cal-detail{display:flex;flex-direction:column;gap:10px}
+.cal-detail-empty{color:var(--muted);font-size:13px;text-align:center;padding:40px 0}
+.cal-dc{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px}
+/* Stats */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-bottom:24px}
+.stat-card{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:16px}
+.stat-val{font-family:var(--ff-d);font-size:32px;color:var(--accent);line-height:1}
+.stat-lbl{font-size:12px;color:var(--muted);margin-top:6px}
+.sec-title{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px}
+/* Modal */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(6px);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal{background:var(--s1);border:1px solid var(--border);border-radius:20px;width:100%;max-width:460px;padding:28px;max-height:90vh;overflow-y:auto;animation:mIn .22s cubic-bezier(.34,1.56,.64,1)}
+@keyframes mIn{from{opacity:0;transform:scale(.92) translateY(20px)}to{opacity:1;transform:none}}
+@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-handle{width:38px;height:4px;background:var(--border);border-radius:99px;margin:0 auto 18px;display:none}
+.modal-title{font-family:var(--ff-d);font-size:22px;margin-bottom:18px}
+.fg{margin-bottom:14px}
+.fl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+.fi{width:100%;padding:11px 14px;border-radius:10px;background:var(--s2);border:1px solid var(--border);color:var(--text);font-family:var(--ff-b);font-size:14px;outline:none;transition:border-color .15s;min-height:44px;-webkit-appearance:none}
+.fi:focus{border-color:var(--accent)}
+.fi-err{border-color:var(--danger)!important}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.icon-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+.icon-opt{aspect-ratio:1;border-radius:10px;border:1.5px solid var(--border);background:var(--s2);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;min-height:44px;-webkit-tap-highlight-color:transparent}
+.icon-opt:active{transform:scale(.88)}
+.icon-opt.sel{border-color:var(--accent);background:rgba(232,201,126,.1)}
+.color-grid{display:flex;gap:10px;flex-wrap:wrap}
+.color-opt{width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .15s}
+.color-opt.sel{border-color:white;transform:scale(1.2)}
+.mact{display:flex;gap:10px;margin-top:20px}
+.mact .btn{flex:1}
+.type-row{display:flex;gap:8px;flex-wrap:wrap}
+.type-opt{flex:1;padding:10px;border-radius:10px;text-align:center;border:1.5px solid var(--border);background:var(--s2);color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;font-family:var(--ff-b);min-height:44px;-webkit-tap-highlight-color:transparent}
+.type-opt.sel{border-color:var(--accent);color:var(--accent);background:rgba(232,201,126,.08)}
+/* Toast */
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:11px 18px;font-size:13px;font-weight:500;z-index:200;animation:toastIn .3s cubic-bezier(.34,1.56,.64,1);display:flex;align-items:center;gap:8px;box-shadow:0 8px 32px rgba(0,0,0,.4);white-space:nowrap}
+@keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+/* Empty */
+.empty{text-align:center;padding:64px 20px}
+.empty-icon{font-size:48px;margin-bottom:12px}
+.empty h3{font-family:var(--ff-d);font-size:22px;margin-bottom:8px;color:var(--muted)}
+.empty p{font-size:14px;color:var(--muted)}
+/* Loading */
+.loading-screen{min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);gap:16px;font-family:var(--ff-b)}
+.loading-screen h1{font-family:var(--ff-d);font-size:28px;color:var(--accent)}
+.spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* Scrollbar */
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px}
+select.fi{appearance:none;-webkit-appearance:none}
+/* Auth */
+.auth-screen{min-height:100dvh;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px;font-family:var(--ff-b)}
+.auth-box{width:100%;max-width:400px;background:var(--s1);border:1px solid var(--border);border-radius:24px;padding:40px 36px;animation:mIn .3s cubic-bezier(.34,1.56,.64,1)}
+.auth-logo{text-align:center;margin-bottom:32px}
+.auth-logo h1{font-family:var(--ff-d);font-size:32px;color:var(--accent);letter-spacing:-.5px}
+.auth-logo p{font-size:13px;color:var(--muted);margin-top:6px}
+.auth-title{font-family:var(--ff-d);font-size:22px;margin-bottom:6px}
+.auth-sub{font-size:13px;color:var(--muted);margin-bottom:28px}
+.auth-err{background:rgba(231,111,81,.12);border:1px solid rgba(231,111,81,.3);color:var(--danger);font-size:13px;padding:10px 14px;border-radius:10px;margin-bottom:16px}
+.auth-switch{text-align:center;font-size:13px;color:var(--muted);margin-top:20px}
+.auth-switch a{color:var(--accent);cursor:pointer;font-weight:600}
+.auth-switch a:hover{text-decoration:underline}
+.pw-wrap{position:relative}
+.pw-eye{position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--muted);font-size:14px;user-select:none;padding:4px;-webkit-tap-highlight-color:transparent}
+/* Profile */
+.prof-av{width:64px;height:64px;border-radius:50%;background:var(--accent);color:#1a1600;font-weight:700;font-size:24px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px}
+.prof-name{font-family:var(--ff-d);font-size:22px;text-align:center;margin-bottom:4px}
+.prof-email{font-size:13px;color:var(--muted);text-align:center;margin-bottom:24px}
+.prof-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:24px}
+.ps{background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center}
+.ps-v{font-family:var(--ff-d);font-size:22px;color:var(--accent)}
+.ps-l{font-size:11px;color:var(--muted);margin-top:3px}
+/* Config warning */
+.config-warn{min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--bg);font-family:var(--ff-b)}
+.config-box{max-width:480px;width:100%;background:var(--s1);border:1px solid rgba(231,111,81,.4);border-radius:20px;padding:32px}
+.config-box h2{font-family:var(--ff-d);font-size:22px;color:var(--danger);margin-bottom:12px}
+.config-box p{font-size:14px;color:var(--muted);line-height:1.7;margin-bottom:16px}
+.config-box code{background:var(--s2);border:1px solid var(--border);padding:2px 7px;border-radius:6px;font-size:13px;color:var(--accent);font-family:monospace}
+.config-steps{display:flex;flex-direction:column;gap:12px;margin-top:16px}
+.config-step{display:flex;gap:12px;align-items:flex-start}
+.step-num{width:26px;height:26px;border-radius:50%;background:var(--accent);color:#1a1600;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.step-text{font-size:13px;color:var(--muted);line-height:1.6}
+.step-text strong{color:var(--text)}
+/* Tablet */
+@media(min-width:769px) and (max-width:1024px){
+  .sidebar{width:68px}
+  .sb-brand{padding:0 0 18px;display:flex;justify-content:center}
+  .sb-brand h1{font-size:13px;writing-mode:vertical-rl}
+  .sb-brand p{display:none}
+  .nav-item{padding:14px;justify-content:center}
+  .nav-item .nav-txt{display:none}
+  .sb-foot,.user-chip{display:none}
+  .m-top{display:flex}
+  .hdr{padding:24px 22px 0}
+  .content{padding:20px 22px 40px}
+  .cal-layout{grid-template-columns:1fr}
+}
+/* Mobile */
+@media(max-width:768px){
+  .sidebar{display:none}
+  .hdr{display:none}
+  .bnav{display:flex}
+  .fab{display:flex}
+  .m-top{display:flex}
+  .modal-handle{display:block}
+  .main{padding-bottom:calc(var(--bnav) + var(--safe))}
+  .content{padding:14px 14px 20px}
+  .grid{grid-template-columns:1fr;gap:12px}
+  .card{padding:16px;border-radius:14px}
+  .card:hover{transform:none;box-shadow:none}
+  .card-actions{opacity:1}
+  .ctr-btn{width:46px;height:46px;border-radius:12px;font-size:22px}
+  .ctr-val{font-size:28px;min-width:56px}
+  .cal-layout{grid-template-columns:1fr;gap:12px}
+  .cal-hdr{padding:12px 14px}
+  .cal-grid{padding:10px 12px 12px}
+  .cal-days{gap:2px;grid-auto-rows:36px}
+  .cal-dh{gap:2px}
+  .cal-day{border-radius:6px;font-size:11px}
+  .stats-grid{grid-template-columns:repeat(2,1fr);gap:10px}
+  .stat-val{font-size:28px}
+  .overlay{align-items:flex-end;padding:0}
+  .modal{border-radius:20px 20px 0 0;border-bottom:none;max-height:92dvh;padding:6px 18px calc(20px + var(--safe));animation:sheetUp .28s cubic-bezier(.32,.72,0,1)}
+  .overlay.cov{align-items:center;padding:20px}
+  .modal.cov{border-radius:20px;border:1px solid var(--border);animation:mIn .22s cubic-bezier(.34,1.56,.64,1)}
+  .toast{bottom:calc(var(--bnav) + var(--safe) + 10px);font-size:12px;padding:9px 14px}
+  .auth-box{padding:32px 22px;border-radius:20px}
+  .fi{font-size:16px}
+  .btn{min-height:44px}
+  .ibt{width:38px;height:38px}
+}
+
+/* ── Weekly Planner ──────────────────────────────────────────────────────── */
+.wp-summary{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:20px;margin-bottom:20px}
+.wp-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+.wp-stat{text-align:center;padding:10px 6px;background:var(--s2);border:1px solid var(--border);border-radius:10px}
+.wp-stat-clickable{cursor:pointer;transition:border-color .15s}
+.wp-stat-clickable:hover{border-color:var(--accent)}
+.wp-val{font-family:var(--ff-d);font-size:24px;line-height:1;margin-bottom:4px}
+.wp-lbl{font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+.wp-goal-input{width:52px;background:var(--s3);border:1.5px solid var(--accent);border-radius:6px;color:var(--text);font-family:var(--ff-d);font-size:22px;font-weight:700;text-align:center;outline:none;padding:2px 4px}
+.wp-day-col{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;transition:border-color .2s}
+.wp-day-col.is-today{border-color:rgba(232,201,126,.45);box-shadow:0 0 0 1px rgba(232,201,126,.12)}
+.wp-day-hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);background:var(--s2)}
+.wp-day-hdr.is-today{background:rgba(232,201,126,.06)}
+.wp-day-name{font-weight:700;font-size:15px;line-height:1}
+.wp-day-meta{font-size:11px;color:var(--muted);margin-top:2px}
+.wp-day-badge{font-size:11px;font-weight:700;padding:2px 9px;border-radius:99px;border:1px solid var(--border);background:var(--s1)}
+.wp-day-body{padding:12px 16px}
+.wp-add-btn{display:flex;align-items:center;gap:5px;padding:7px 12px;border-radius:8px;border:1.5px dashed var(--border);background:transparent;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--ff-b);transition:all .15s;-webkit-tap-highlight-color:transparent;flex-shrink:0}
+.wp-add-btn:hover{border-color:var(--accent);color:var(--accent)}
+.wp-add-btn:active{transform:scale(.95)}
+.task-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--s2);border:1px solid var(--border);border-radius:10px;transition:border-color .15s;margin-bottom:7px}
+.task-row:last-child{margin-bottom:0}
+.task-row:hover{border-color:rgba(232,201,126,.22)}
+.task-row.done-row{opacity:.6}
+.task-check{width:22px;height:22px;border-radius:6px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:all .2s;-webkit-tap-highlight-color:transparent}
+.task-check.checked{background:var(--success);border-color:var(--success)}
+.task-title{font-size:13.5px;font-weight:600;line-height:1.3;word-break:break-word}
+.task-title.struck{text-decoration:line-through;color:var(--muted)}
+.task-cat{font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;display:inline-block;margin-top:3px}
+.wp-eow{background:rgba(232,201,126,.07);border:1px solid rgba(232,201,126,.25);border-radius:12px;padding:16px;margin-bottom:20px;display:flex;flex-direction:column;gap:10px}
+.wp-eow-title{font-weight:700;font-size:14px;margin-bottom:2px}
+.wp-eow-sub{font-size:12px;color:var(--muted)}
+.wp-eow-btns{display:flex;gap:8px;flex-wrap:wrap}
+.wp-today-sec{background:rgba(232,201,126,.05);border:1px solid rgba(232,201,126,.2);border-radius:var(--r);padding:16px;margin-bottom:20px}
+.wp-today-hdr{font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px}
+.wp-warn{background:rgba(231,111,81,.1);border:1px solid rgba(231,111,81,.3);color:var(--danger);font-size:12px;font-weight:600;padding:8px 12px;border-radius:8px;margin-top:10px}
+/* Planner mobile */
+@media(max-width:768px){
+  .wp-stats{grid-template-columns:repeat(2,1fr);gap:8px}
+  .wp-val{font-size:22px}
+  .wp-day-hdr{padding:12px 14px}
+  .wp-day-body{padding:10px 14px}
+}
+
+/* ── Weekly Planner ─────────────────────────────────────────────────── */
+.wp-day{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;transition:border-color .2s}
+.wp-day.is-today{border-color:var(--accent)}
+.wp-day-hdr{padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.wp-day-hdr.has-tasks{border-bottom:1px solid var(--border)}
+.wp-day-name{font-weight:700;font-size:14px}
+.wp-day-date{font-size:11px;color:var(--muted)}
+.wp-today-pill{font-size:10px;font-weight:700;color:var(--accent);background:rgba(232,201,126,.12);border:1px solid rgba(232,201,126,.3);border-radius:99px;padding:1px 8px}
+.wp-day-count{font-size:11px;color:var(--muted)}
+.wp-add-btn{font-size:12px;font-weight:600;color:var(--accent);background:none;border:none;cursor:pointer;font-family:var(--ff-b);padding:4px 6px;display:flex;align-items:center;gap:4px;-webkit-tap-highlight-color:transparent;transition:opacity .15s}
+.wp-add-btn:disabled{color:var(--muted);cursor:not-allowed;opacity:.45}
+.wp-add-btn:not(:disabled):active{opacity:.6}
+.wp-tasks{padding:8px 12px 12px;display:flex;flex-direction:column;gap:6px}
+.wp-task{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--s2);border:1px solid var(--border);border-radius:10px;transition:all .15s}
+.wp-task.done{border-color:rgba(42,157,143,.25);opacity:.75}
+.wp-task.highlight{background:rgba(232,201,126,.04);border-color:rgba(232,201,126,.18)}
+.wp-check{width:20px;height:20px;border-radius:6px;flex-shrink:0;cursor:pointer;border:2px solid var(--border);background:transparent;display:flex;align-items:center;justify-content:center;transition:all .15s;-webkit-tap-highlight-color:transparent}
+.wp-check.done{border-color:var(--success);background:var(--success)}
+.wp-check-tick{color:#fff;font-size:10px;line-height:1;font-weight:700}
+.wp-task-title{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .15s}
+.wp-task-title.done{text-decoration:line-through;color:var(--muted)}
+.wp-cat{font-size:10px;font-weight:700;padding:1px 8px;border-radius:99px;display:inline-block;margin-top:2px;white-space:nowrap}
+.wp-task-actions{display:flex;gap:4px;flex-shrink:0;opacity:0;transition:opacity .15s}
+.wp-task:hover .wp-task-actions{opacity:1}
+.wp-ibt{width:26px;height:26px;border:1px solid var(--border);background:var(--s2);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:11px;transition:all .15s;color:var(--muted);-webkit-tap-highlight-color:transparent}
+.wp-ibt:hover{border-color:var(--accent);color:var(--accent)}
+.wp-ibt.del:hover{border-color:var(--danger);color:var(--danger)}
+.wp-ibt:active{transform:scale(.88)}
+.wp-progress-box{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;margin-bottom:20px}
+.wp-stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.wp-stat{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px 10px;text-align:center}
+.wp-stat-v{font-family:var(--ff-d);font-size:22px;color:var(--accent)}
+.wp-stat-l{font-size:11px;color:var(--muted);margin-top:3px}
+.wp-eow-banner{background:rgba(232,201,126,.07);border:1px solid rgba(232,201,126,.28);border-radius:12px;padding:13px 16px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.wp-today-section{margin-bottom:20px}
+.wp-today-section .sec-title{margin-bottom:10px}
+.wp-goal-btn{font-size:11px;color:var(--muted);background:none;border:1px solid var(--border);border-radius:8px;padding:4px 10px;cursor:pointer;font-family:var(--ff-b);transition:all .15s;white-space:nowrap}
+.wp-goal-btn:hover{border-color:var(--accent);color:var(--accent)}
+/* on mobile, always show task actions */
+@media(max-width:768px){
+  .wp-task-actions{opacity:1}
+  .wp-task{gap:8px}
+}
+</style>
+
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+// ─────────────────────────────────────────────────────────────────────────────
+// ⚙️  SUPABASE CONFIG  — Replace these two values with yours
+// ─────────────────────────────────────────────────────────────────────────────
+const SUPABASE_URL  = "https://peocbejeapqvegiuiaee.supabase.co";
+const SUPABASE_KEY  = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBlb2NiZWplYXBxdmVnaXVpYWVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2OTQ3ODAsImV4cCI6MjA4ODI3MDc4MH0.RsGHEwJP3OzdusJlZoV5vFa6qZ0CPMPgJkIOwS3AfnQ";
+// ─────────────────────────────────────────────────────────────────────────────
+
+const { useState, useEffect, useCallback, useRef } = React;
+const isConfigured =
+  SUPABASE_URL &&
+  SUPABASE_URL.includes("supabase.co") &&
+  SUPABASE_KEY &&
+  SUPABASE_KEY.length > 20;
+
+const sb = isConfigured
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+  : null;
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+const COLORS = [
+  {bg:"#e76f51"},{bg:"#2a9d8f"},{bg:"#e9c46a"},{bg:"#457b9d"},
+  {bg:"#f4a261"},{bg:"#8ecae6"},{bg:"#b5838d"},{bg:"#6a994e"},
+];
+const VALID_COLORS = new Set(COLORS.map(c=>c.bg));
+const ICONS = ["💧","🏃","📚","🧘","🍎","💪","🛌","✍️","🎯","🎸","🌿","🧠","🚴","🧹","💊","🌅","🥗","🎨"];
+const VALID_ICONS  = new Set(ICONS);
+const VALID_TYPES  = new Set(["checkbox","counter"]);
+const VALID_FREQS  = new Set(["daily","weekly","biweekly","monthly"]);
+const LIMITS = { NAME_MIN:1, NAME_MAX:60, UNIT_MIN:1, UNIT_MAX:20, GOAL_MIN:1, GOAL_MAX:999 };
+
+// ── Date/period helpers ───────────────────────────────────────────────────────
+const todayStr  = () => new Date().toISOString().slice(0,10);
+const fmtDate   = d  => new Date(d+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"});
+const mkInitials = n => (n||"?").split(" ").map(w=>w[0]).join("").toUpperCase().slice(0,2)||"?";
+
+// Week start = Monday (ISO)
+function getWeekStart(dateStr){
+  const d = new Date(dateStr+"T12:00:00");
+  const diff = (d.getDay()+6)%7; // days since Monday
+  d.setDate(d.getDate()-diff);
+  return d.toISOString().slice(0,10);
+}
+
+// Biweekly start anchored to 2024-01-01 (a Monday)
+function getBiweekStart(dateStr){
+  const epoch = new Date("2024-01-01T12:00:00");
+  const d = new Date(dateStr+"T12:00:00");
+  const days = Math.floor((d-epoch)/(864e5));
+  const periodDays = days - ((days%14+14)%14); // floor to 14-day boundary
+  const result = new Date(epoch);
+  result.setDate(result.getDate()+periodDays);
+  return result.toISOString().slice(0,10);
+}
+
+function getMonthStart(dateStr){
+  return dateStr.slice(0,7)+"-01";
+}
+
+function getPeriodStart(dateStr, frequency){
+  if(frequency==="weekly")   return getWeekStart(dateStr);
+  if(frequency==="biweekly") return getBiweekStart(dateStr);
+  if(frequency==="monthly")  return getMonthStart(dateStr);
+  return dateStr;
+}
+
+function getPeriodDates(dateStr, frequency){
+  if(frequency==="daily") return [dateStr];
+  if(frequency==="monthly"){
+    const [y,m]=dateStr.split("-").map(Number);
+    const days=new Date(y,m,0).getDate();
+    return Array.from({length:days},(_,i)=>{
+      const d=new Date(y,m-1,i+1);
+      return d.toISOString().slice(0,10);
+    });
+  }
+  const start = getPeriodStart(dateStr, frequency);
+  const len   = frequency==="biweekly" ? 14 : 7;
+  return Array.from({length:len}, (_,i)=>{
+    const d = new Date(start+"T12:00:00");
+    d.setDate(d.getDate()+i);
+    return d.toISOString().slice(0,10);
+  });
+}
+
+function isPeriodDone(logs, dates, goal){
+  const total = dates.reduce((s,k)=>s+(sanitizeLog(logs[k]).count||0), 0);
+  return total>=goal || dates.some(k=>sanitizeLog(logs[k]).done);
+}
+
+function getPeriodProgress(logs, dateStr, frequency, goal){
+  if(frequency==="daily"){
+    const log = sanitizeLog(logs[dateStr]);
+    return {count:log.count, done:log.done};
+  }
+  const dates = getPeriodDates(dateStr, frequency);
+  const count = dates.reduce((s,k)=>s+(sanitizeLog(logs[k]).count||0), 0);
+  const done  = isPeriodDone(logs, dates, goal);
+  return {count, done};
+}
+
+// Get previous period's start date
+function prevPeriodStart(startDateStr, frequency){
+  if(frequency==="monthly"){
+    const [y,m]=startDateStr.split("-").map(Number);
+    const d=new Date(y,m-2,1); // previous month
+    return d.toISOString().slice(0,10);
+  }
+  const len = frequency==="biweekly"?14:7;
+  const d = new Date(startDateStr+"T12:00:00");
+  d.setDate(d.getDate()-len);
+  return d.toISOString().slice(0,10);
+}
+
+// ── Sanitizers ────────────────────────────────────────────────────────────────
+function sanitizeLog(entry){
+  if(!entry||typeof entry!=="object") return {count:0,done:false};
+  return {
+    count: Math.max(0,Math.min(9999,parseInt(entry.count)||0)),
+    done:  Boolean(entry.done),
+  };
+}
+function sanitizeLogs(raw){
+  if(!raw||typeof raw!=="object") return {};
+  const out={}, re=/^\d{4}-\d{2}-\d{2}$/;
+  for(const [k,v] of Object.entries(raw)){
+    if(!re.test(k)) continue;
+    out[k]=sanitizeLog(v);
+  }
+  return out;
+}
+
+// ── Streak & rate — frequency-aware ──────────────────────────────────────────
+function calcStreak(rawLogs, frequency="daily", goal=1){
+  const logs = sanitizeLogs(rawLogs);
+  if(frequency==="daily"){
+    let s=0, d=new Date(); d.setHours(0,0,0,0);
+    if(!logs[d.toISOString().slice(0,10)]?.done) d.setDate(d.getDate()-1);
+    while(true){
+      const k=d.toISOString().slice(0,10);
+      if(logs[k]?.done){s++;d.setDate(d.getDate()-1);}else break;
+    }
+    return s;
+  }
+  // Weekly / biweekly
+  let streak=0;
+  let checkDate=todayStr();
+  const MAX_PERIODS=104; // 2 years max
+  for(let i=0;i<MAX_PERIODS;i++){
+    const dates=getPeriodDates(checkDate,frequency);
+    if(isPeriodDone(logs,dates,goal)){
+      streak++;
+      checkDate=prevPeriodStart(getPeriodStart(checkDate,frequency),frequency);
+    } else {
+      // If current period not done yet, skip it once and check previous
+      if(i===0){
+        checkDate=prevPeriodStart(getPeriodStart(checkDate,frequency),frequency);
+      } else break;
+    }
+  }
+  return streak;
+}
+
+function calcRate(rawLogs, frequency="daily", goal=1){
+  const logs=sanitizeLogs(rawLogs);
+  const v=Object.values(logs);
+  if(!v.length) return 0;
+  if(frequency==="daily"){
+    return Math.round(v.filter(e=>e.done).length/v.length*100);
+  }
+  // Weekly/biweekly: gather unique period starts that have any data
+  const periods=new Map();
+  for(const dateStr of Object.keys(logs)){
+    const ps=getPeriodStart(dateStr,frequency);
+    if(!periods.has(ps)) periods.set(ps,false);
+    const dates=getPeriodDates(dateStr,frequency);
+    if(isPeriodDone(logs,dates,goal)) periods.set(ps,true);
+  }
+  if(!periods.size) return 0;
+  let done=0;
+  periods.forEach(v=>{ if(v) done++; });
+  return Math.round(done/periods.size*100);
+}
+
+// ── Validators ────────────────────────────────────────────────────────────────
+function validateHabit(raw, existingHabits=[], editingId=null){
+  const errors={};
+  const name  = (raw.name||"").trim();
+  const unit  = (raw.unit||"").trim();
+  const goal  = parseInt(raw.goal);
+  const type  = raw.type;
+  const freq  = raw.frequency||"daily";
+  const icon  = raw.icon;
+  const color = raw.color;
+
+  if(!name)                              errors.name="Name is required.";
+  else if(name.length>LIMITS.NAME_MAX)   errors.name=`Max ${LIMITS.NAME_MAX} characters.`;
+  else{
+    const dup=existingHabits.find(h=>h.name.trim().toLowerCase()===name.toLowerCase()&&h.id!==editingId);
+    if(dup) errors.name="You already have a habit with this name.";
+  }
+
+  if(!unit)                              errors.unit="Unit is required (e.g. cups, pages).";
+  else if(unit.length>LIMITS.UNIT_MAX)   errors.unit=`Max ${LIMITS.UNIT_MAX} characters.`;
+
+  if(isNaN(goal)||goal<LIMITS.GOAL_MIN)  errors.goal=`Goal must be at least ${LIMITS.GOAL_MIN}.`;
+  else if(goal>LIMITS.GOAL_MAX)          errors.goal=`Goal must be ${LIMITS.GOAL_MAX} or less.`;
+
+  if(!VALID_TYPES.has(type))  errors.type="Invalid type.";
+  if(!VALID_FREQS.has(freq))  errors.freq="Invalid frequency.";
+  if(!VALID_ICONS.has(icon))  errors.icon="Invalid icon.";
+  if(!color?.bg||!VALID_COLORS.has(color.bg)) errors.color="Invalid color.";
+
+  if(Object.keys(errors).length) return {ok:false,errors};
+  return {
+    ok:true, errors:{},
+    data:{ name, unit, goal, type, frequency:freq, icon, color:{bg:color.bg} }
+  };
+}
+
+function validateAuth(mode,{name,email,pw}){
+  const errors={};
+  const emailRe=/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  if(mode==="signup"){
+    const n=(name||"").trim();
+    if(!n)           errors.name="Name is required.";
+    else if(n.length<2) errors.name="At least 2 characters.";
+    else if(n.length>60) errors.name="Max 60 characters.";
+  }
+  const e=(email||"").trim().toLowerCase();
+  if(!e)             errors.email="Email is required.";
+  else if(!emailRe.test(e)) errors.email="Enter a valid email address.";
+  const p=(pw||"");
+  if(!p)             errors.pw="Password is required.";
+  else if(p.trim().length===0) errors.pw="Password cannot be only spaces.";
+  else if(p.length<6) errors.pw="At least 6 characters.";
+  else if(p.length>72) errors.pw="Max 72 characters.";
+  return {ok:Object.keys(errors).length===0, errors};
+}
+
+// ── DB layer ──────────────────────────────────────────────────────────────────
+const DB={
+  async getHabits(userId){
+    if(!userId) throw new Error("Not authenticated.");
+    const {data,error}=await sb.from("habits").select("*").eq("user_id",userId).order("created_at",{ascending:true});
+    if(error) throw new Error(error.message);
+    return (data||[]).map(h=>({
+      ...h,
+      goal:      Math.max(1,Math.min(999,parseInt(h.goal)||1)),
+      logs:      sanitizeLogs(h.logs),
+      color:     VALID_COLORS.has(h.color?.bg)?h.color:COLORS[0],
+      icon:      VALID_ICONS.has(h.icon)?h.icon:"🎯",
+      type:      VALID_TYPES.has(h.type)?h.type:"checkbox",
+      frequency: VALID_FREQS.has(h.frequency)?h.frequency:"daily",
+      name:      (h.name||"Unnamed").slice(0,LIMITS.NAME_MAX),
+      unit:      (h.unit||"times").slice(0,LIMITS.UNIT_MAX),
+    }));
+  },
+  async upsertHabit(userId, id, fields, logs, createdAt){
+    if(!userId) throw new Error("Not authenticated.");
+    if(!id||typeof id!=="string") throw new Error("Invalid habit ID.");
+    const payload={
+      id,
+      user_id:    userId,
+      name:       (fields.name||"").trim().slice(0,LIMITS.NAME_MAX),
+      icon:       VALID_ICONS.has(fields.icon)?fields.icon:"🎯",
+      color:      VALID_COLORS.has(fields.color?.bg)?{bg:fields.color.bg}:COLORS[0],
+      type:       VALID_TYPES.has(fields.type)?fields.type:"checkbox",
+      frequency:  VALID_FREQS.has(fields.frequency)?fields.frequency:"daily",
+      goal:       Math.max(LIMITS.GOAL_MIN,Math.min(LIMITS.GOAL_MAX,parseInt(fields.goal)||1)),
+      unit:       (fields.unit||"times").trim().slice(0,LIMITS.UNIT_MAX),
+      logs:       sanitizeLogs(logs),
+      created_at: createdAt||todayStr(),
+    };
+    const {error}=await sb.from("habits").upsert(payload);
+    if(error) throw new Error(error.message);
+    return payload;
+  },
+  async deleteHabit(userId, id){
+    if(!userId) throw new Error("Not authenticated.");
+    if(!id) throw new Error("Invalid habit ID.");
+    const {error}=await sb.from("habits").delete().eq("id",id).eq("user_id",userId);
+    if(error) throw new Error(error.message);
+  },
+};
+
+
+// ── Weekly Planner constants & helpers ───────────────────────────────────────
+const WEEK_DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+const WP_CATS   = ["","Learning","Work","Health","Personal"];
+const WP_CAT_STYLE = {
+  Learning:{bg:"rgba(142,202,230,.12)",color:"#8ecae6",border:"rgba(142,202,230,.35)"},
+  Work:    {bg:"rgba(232,201,126,.10)",color:"#e8c97e",border:"rgba(232,201,126,.35)"},
+  Health:  {bg:"rgba(42,157,143,.10)", color:"#2a9d8f",border:"rgba(42,157,143,.35)"},
+  Personal:{bg:"rgba(180,131,141,.12)",color:"#b5838d",border:"rgba(180,131,141,.35)"},
+};
+
+function getPlannerWeekStart(d){
+  const dt=new Date((d||todayStr())+"T12:00:00");
+  const diff=(dt.getDay()+6)%7;
+  dt.setDate(dt.getDate()-diff);
+  return dt.toISOString().slice(0,10);
+}
+function shiftWeek(ws,delta){
+  const d=new Date(ws+"T12:00:00");
+  d.setDate(d.getDate()+delta*7);
+  return d.toISOString().slice(0,10);
+}
+function fmtWeekRange(ws){
+  const s=new Date(ws+"T12:00:00");
+  const e=new Date(ws+"T12:00:00");
+  e.setDate(e.getDate()+6);
+  const o={month:"short",day:"numeric"};
+  return s.toLocaleDateString("en-US",o)+" \u2013 "+e.toLocaleDateString("en-US",o);
+}
+function getDayDate(ws,dayIdx){
+  const d=new Date(ws+"T12:00:00");
+  d.setDate(d.getDate()+dayIdx);
+  return d.toISOString().slice(0,10);
+}
+function isWeekPast(ws){
+  const e=new Date(ws+"T12:00:00");
+  e.setDate(e.getDate()+6);
+  return new Date(todayStr()+"T12:00:00")>e;
+}
+function mkTaskId(){
+  return "tk"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+}
+
+// ── Planner DB ────────────────────────────────────────────────────────────────
+const PlannerDB={
+  async getWeek(userId,weekStart){
+    if(!userId) throw new Error("Not authenticated.");
+    const id=userId+"_"+weekStart;
+    const {data,error}=await sb.from("planner_weeks").select("*").eq("id",id).maybeSingle();
+    if(error) throw new Error(error.message);
+    return data||{tasks:[],weekly_goal:10};
+  },
+  async saveWeek(userId,weekStart,weeklyGoal,tasks){
+    if(!userId) throw new Error("Not authenticated.");
+    const id=userId+"_"+weekStart;
+    const sanitized=(tasks||[]).map(t=>({
+      id:       typeof t.id==="string"&&t.id?t.id:mkTaskId(),
+      title:    (t.title||"").trim().slice(0,100),
+      day:      WEEK_DAYS.includes(t.day)?t.day:"Monday",
+      category: WP_CATS.includes(t.category)?t.category:"",
+      status:   t.status==="Completed"?"Completed":"Pending",
+      created_at: t.created_at||todayStr(),
+    }));
+    const payload={
+      id, user_id:userId, week_start:weekStart,
+      weekly_goal:Math.max(1,Math.min(100,parseInt(weeklyGoal)||10)),
+      tasks:sanitized,
+      created_at:weekStart,
+    };
+    const {error}=await sb.from("planner_weeks").upsert(payload);
+    if(error) throw new Error(error.message);
+    return payload;
+  },
+};
+
+// ── Weekly Planner: TaskItem ──────────────────────────────────────────────────
+function WpTaskItem({task,onToggle,onEdit,onDelete,highlight}){
+  const done=task.status==="Completed";
+  const cs=task.category&&WP_CAT_STYLE[task.category];
+  return(
+    <div className={`wp-task${done?" done":""}${highlight?" highlight":""}`}>
+      <div className={`wp-check${done?" done":""}`} onClick={()=>onToggle(task.id)}>
+        {done&&<span className="wp-check-tick">✓</span>}
+      </div>
+      <div style={{flex:1,minWidth:0}}>
+        <div className={`wp-task-title${done?" done":""}`}>{task.title}</div>
+        {cs&&<span className="wp-cat" style={{background:cs.bg,color:cs.color,border:`1px solid ${cs.border}`}}>{task.category}</span>}
+      </div>
+      <div className="wp-task-actions">
+        <div className="wp-ibt" onClick={()=>onEdit(task)}>✎</div>
+        <div className="wp-ibt del" onClick={()=>onDelete(task.id)}>✕</div>
+      </div>
+    </div>
+  );
+}
+
+// ── Weekly Planner: TaskModal ─────────────────────────────────────────────────
+function WpTaskModal({task,defaultDay,onSave,onClose}){
+  const [title,setTitle]=useState(task?.title||"");
+  const [day,setDay]=useState(task?.day||defaultDay||"Monday");
+  const [cat,setCat]=useState(task?.category||"");
+  const [err,setErr]=useState("");
+
+  const save=()=>{
+    const t=title.trim();
+    if(!t){setErr("Title is required.");return;}
+    if(t.length>100){setErr("Max 100 characters.");return;}
+    onSave({
+      id:task?.id||mkTaskId(),
+      title:t,day,category:cat,
+      status:task?.status||"Pending",
+      created_at:task?.created_at||todayStr(),
+    });
+  };
+
+  return(
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" onClick={e=>e.stopPropagation()}>
+        <div className="modal-handle"/>
+        <div className="modal-title">{task?"Edit Task":"New Task"}</div>
+
+        <div className="fg">
+          <label className="fl">Task Title</label>
+          <input className={err?"fi fi-err":"fi"} placeholder="What do you want to accomplish?"
+            value={title} maxLength={101}
+            onChange={e=>{setTitle(e.target.value);setErr("");}} autoFocus/>
+          <FieldErr msg={err}/>
+        </div>
+
+        <div className="fg">
+          <label className="fl">Planned Day</label>
+          <select className="fi" value={day} onChange={e=>setDay(e.target.value)}>
+            {WEEK_DAYS.map(d=><option key={d} value={d}>{d}</option>)}
+          </select>
+        </div>
+
+        <div className="fg">
+          <label className="fl">Category <span style={{fontWeight:400,textTransform:"none",fontSize:10,color:"var(--muted)"}}>— optional</span></label>
+          <div style={{display:"flex",gap:7,flexWrap:"wrap",marginTop:2}}>
+            {WP_CATS.map(c=>{
+              const cs=c&&WP_CAT_STYLE[c];
+              const sel=cat===c;
+              return(
+                <button key={c||"none"}
+                  style={{
+                    padding:"6px 13px",borderRadius:20,fontSize:12,fontWeight:600,cursor:"pointer",
+                    fontFamily:"var(--ff-b)",transition:"all .15s",border:"1.5px solid",
+                    ...(sel
+                      ?(cs?{background:cs.bg,color:cs.color,borderColor:cs.border}
+                          :{background:"rgba(232,201,126,.08)",color:"var(--accent)",borderColor:"var(--accent)"})
+                      :{background:"var(--s2)",color:"var(--muted)",borderColor:"var(--border)"})
+                  }}
+                  onClick={()=>setCat(c)}>
+                  {c||"None"}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="mact">
+          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={save}>{task?"Save Changes":"Add Task"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Weekly Planner: GoalModal ─────────────────────────────────────────────────
+function WpGoalModal({current,onSave,onClose}){
+  const [val,setVal]=useState(String(current||10));
+  return(
+    <div className="overlay cov" onClick={onClose}>
+      <div className="modal cov" style={{maxWidth:320}} onClick={e=>e.stopPropagation()}>
+        <div className="modal-title" style={{fontSize:18}}>Weekly Goal</div>
+        <p style={{fontSize:13,color:"var(--muted)",marginBottom:16,lineHeight:1.6}}>
+          Set the maximum number of tasks to plan this week. You'll get a warning when you hit the limit.
+        </p>
+        <div className="fg">
+          <label className="fl">Max tasks <span style={{fontWeight:400,textTransform:"none",fontSize:10,color:"var(--muted)"}}>(1–100)</span></label>
+          <input className="fi" type="text" inputMode="numeric" pattern="[0-9]*"
+            value={val} autoFocus
+            onChange={e=>setVal(e.target.value.replace(/[^0-9]/g,""))}
+            onBlur={()=>setVal(String(Math.max(1,Math.min(100,parseInt(val)||10))))}/>
+        </div>
+        <div className="mact" style={{marginTop:8}}>
+          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary"
+            onClick={()=>onSave(Math.max(1,Math.min(100,parseInt(val)||10)))}>
+            Set Goal
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Weekly Planner: EndOfWeekModal ────────────────────────────────────────────
+function WpEowModal({pendingCount,onMove,onClear,onClose}){
+  return(
+    <div className="overlay cov" onClick={onClose}>
+      <div className="modal cov" style={{maxWidth:360}} onClick={e=>e.stopPropagation()}>
+        <div style={{textAlign:"center",fontSize:36,marginBottom:8}}>📋</div>
+        <div className="modal-title" style={{textAlign:"center",fontSize:20}}>Week Complete</div>
+        <p style={{fontSize:13,color:"var(--muted)",textAlign:"center",lineHeight:1.6,marginBottom:20}}>
+          {pendingCount} incomplete task{pendingCount!==1?"s":""} remaining. What would you like to do?
+        </p>
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <button className="btn btn-primary btn-full" onClick={onMove}>
+            ↗ Move Incomplete to Next Week
+          </button>
+          <button className="btn btn-ghost btn-full" onClick={onClear}>
+            🗑 Clear Completed Tasks Only
+          </button>
+          <button className="btn btn-ghost btn-full" onClick={onClose}>
+            Dismiss
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Weekly Planner: main view ─────────────────────────────────────────────────
+function WeeklyPlannerView({user,offline,showToast}){
+  const t=todayStr();
+  const [ws,setWs]=useState(()=>getPlannerWeekStart(t));
+  const [tasks,setTasks]=useState([]);
+  const [weeklyGoal,setWeeklyGoal]=useState(10);
+  const [loading,setLoading]=useState(false);
+  const [taskModal,setTaskModal]=useState(null);  // null|{mode:"add",day?}|{mode:"edit",task}
+  const [goalModal,setGoalModal]=useState(false);
+  const [eowModal,setEowModal]=useState(false);
+
+  const isCurrentWeek=ws===getPlannerWeekStart(t);
+  const isPast=isWeekPast(ws);
+  const todayDayName=WEEK_DAYS[(new Date(t+"T12:00:00").getDay()+6)%7];
+
+  // Load week from Supabase
+  useEffect(()=>{
+    if(!user) return;
+    setLoading(true);
+    PlannerDB.getWeek(user.id,ws)
+      .then(d=>{ setTasks(d.tasks||[]); setWeeklyGoal(d.weekly_goal||10); })
+      .catch(e=>showToast("⚠️ "+e.message))
+      .finally(()=>setLoading(false));
+  },[user,ws]);
+
+  // Persist helper
+  const persist=async(nextTasks,nextGoal)=>{
+    if(!user||offline) return;
+    try{ await PlannerDB.saveWeek(user.id,ws,nextGoal??weeklyGoal,nextTasks??tasks); }
+    catch(e){ showToast("⚠️ Sync failed: "+e.message); }
+  };
+
+  const applyTasks=(fn,goalOverride)=>{
+    const next=typeof fn==="function"?fn(tasks):fn;
+    setTasks(next);
+    persist(next,goalOverride);
+  };
+
+  // Task operations
+  const addTask=task=>{
+    if(tasks.length>=weeklyGoal){
+      showToast(`⚠️ Goal reached — max ${weeklyGoal} tasks this week`);
+      return;
+    }
+    applyTasks(p=>[...p,task]);
+    setTaskModal(null);
+    showToast("✅ Task added!");
+  };
+  const editTask=task=>{
+    applyTasks(p=>p.map(x=>x.id===task.id?task:x));
+    setTaskModal(null);
+    showToast("✏️ Task updated!");
+  };
+  const deleteTask=id=>{
+    applyTasks(p=>p.filter(x=>x.id!==id));
+    showToast("🗑️ Task removed.");
+  };
+  const toggleTask=id=>{
+    applyTasks(p=>p.map(x=>x.id===id
+      ?{...x,status:x.status==="Completed"?"Pending":"Completed"}:x));
+  };
+
+  // Goal
+  const saveGoal=newGoal=>{
+    setWeeklyGoal(newGoal);
+    setGoalModal(false);
+    persist(tasks,newGoal);
+    showToast("🎯 Goal set to "+newGoal+" tasks");
+  };
+
+  // End of week: move incomplete to next week
+  const handleMove=async()=>{
+    const nextWs=shiftWeek(ws,1);
+    const incomplete=tasks.filter(x=>x.status!=="Completed");
+    const completed=tasks.filter(x=>x.status==="Completed");
+    // Keep only completed in current week
+    applyTasks(completed);
+    // Merge into next week
+    if(user&&!offline){
+      try{
+        const nd=await PlannerDB.getWeek(user.id,nextWs);
+        await PlannerDB.saveWeek(user.id,nextWs,nd.weekly_goal||weeklyGoal,[...incomplete,...(nd.tasks||[])]);
+        showToast("↗ "+incomplete.length+" task"+(incomplete.length!==1?"s":"")+" moved to next week");
+      }catch(e){ showToast("⚠️ "+e.message); }
+    }
+    setEowModal(false);
+    setWs(nextWs);
+  };
+  const handleClear=()=>{
+    applyTasks(p=>p.filter(x=>x.status!=="Completed"));
+    setEowModal(false);
+    showToast("🗑️ Completed tasks cleared.");
+  };
+
+  // Stats
+  const total=tasks.length;
+  const done=tasks.filter(x=>x.status==="Completed").length;
+  const rate=total?Math.round(done/total*100):0;
+  const pct=Math.min(100,rate);
+  const pending=tasks.filter(x=>x.status!=="Completed").length;
+  const atGoal=total>0&&total>=weeklyGoal;
+  const todayTasks=tasks.filter(x=>x.day===todayDayName);
+
+  return(
+    <div>
+      {/* ── Week navigation ── */}
+      <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:20,gap:10,flexWrap:"wrap"}}>
+        <div>
+          <div style={{fontSize:11,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:".6px",marginBottom:3}}>
+            {isCurrentWeek?"Current Week":isPast?"Past Week":"Future Week"}
+          </div>
+          <div style={{fontFamily:"var(--ff-d)",fontSize:20,lineHeight:1.2}}>
+            {fmtWeekRange(ws)}
+          </div>
+        </div>
+        <div style={{display:"flex",gap:7,alignItems:"center",flexShrink:0}}>
+          <button className="btn btn-ghost btn-sm" onClick={()=>setWs(w=>shiftWeek(w,-1))}>←</button>
+          {!isCurrentWeek&&<button className="btn btn-ghost btn-sm" onClick={()=>setWs(getPlannerWeekStart(t))}>Today</button>}
+          <button className="btn btn-ghost btn-sm" onClick={()=>setWs(w=>shiftWeek(w,1))}>→</button>
+        </div>
+      </div>
+
+      {/* ── End of week banner ── */}
+      {isPast&&pending>0&&(
+        <div className="wp-eow-banner">
+          <span style={{fontSize:13,color:"var(--accent)",fontWeight:500}}>
+            📅 Week ended — {pending} task{pending!==1?"s":""} still pending
+          </span>
+          <button className="btn btn-primary btn-sm" onClick={()=>setEowModal(true)}>Manage</button>
+        </div>
+      )}
+
+      {/* ── Progress box ── */}
+      <div className="wp-progress-box">
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,gap:8,flexWrap:"wrap"}}>
+          <div style={{fontWeight:700,fontSize:13}}>Weekly Progress</div>
+          <button className="wp-goal-btn" onClick={()=>setGoalModal(true)}>
+            🎯 Goal: {weeklyGoal} tasks
+          </button>
+        </div>
+        <div className="wp-stats-row">
+          <div className="wp-stat"><div className="wp-stat-v">{total}</div><div className="wp-stat-l">Planned</div></div>
+          <div className="wp-stat"><div className="wp-stat-v">{done}</div><div className="wp-stat-l">Completed</div></div>
+          <div className="wp-stat"><div className="wp-stat-v">{rate}%</div><div className="wp-stat-l">Rate</div></div>
+        </div>
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:"var(--muted)",marginBottom:6}}>
+          <span>Completion</span>
+          <span style={{fontWeight:600,color:"var(--text)"}}>{done}/{total}</span>
+        </div>
+        <div className="prog-bar">
+          <div className="prog-fill" style={{width:`${pct}%`,background:pct===100?"var(--success)":"var(--accent)"}}/>
+        </div>
+        {atGoal&&(
+          <div style={{fontSize:12,color:"#f4a261",marginTop:8,display:"flex",alignItems:"center",gap:6}}>
+            ⚠️ Weekly goal reached ({total}/{weeklyGoal} tasks planned)
+          </div>
+        )}
+      </div>
+
+      {/* ── Today's tasks (current week only) ── */}
+      {isCurrentWeek&&(
+        <div className="wp-today-section">
+          <div className="sec-title">Today — {todayDayName}</div>
+          {todayTasks.length===0?(
+            <div style={{color:"var(--muted)",fontSize:13,padding:"8px 0"}}>No tasks planned for today.</div>
+          ):(
+            <div style={{display:"flex",flexDirection:"column",gap:6}}>
+              {todayTasks.map(task=>(
+                <WpTaskItem key={task.id} task={task} highlight
+                  onToggle={toggleTask} onEdit={tk=>setTaskModal({mode:"edit",task:tk})} onDelete={deleteTask}/>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Day sections ── */}
+      {loading?(
+        <div style={{textAlign:"center",padding:"40px 0"}}>
+          <div className="spinner" style={{margin:"0 auto"}}/>
+          <p style={{color:"var(--muted)",marginTop:12,fontSize:13}}>Loading planner…</p>
+        </div>
+      ):(
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {WEEK_DAYS.map((day,i)=>{
+            const dayDate=getDayDate(ws,i);
+            const dayTasks=tasks.filter(x=>x.day===day);
+            const isToday=dayDate===t;
+            const doneCnt=dayTasks.filter(x=>x.status==="Completed").length;
+            return(
+              <div key={day} className={`wp-day${isToday?" is-today":""}`}>
+                <div className={`wp-day-hdr${dayTasks.length>0?" has-tasks":""}`}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                    <span className="wp-day-name" style={{color:isToday?"var(--accent)":"var(--text)"}}>{day}</span>
+                    <span className="wp-day-date">
+                      {new Date(dayDate+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"})}
+                    </span>
+                    {isToday&&<span className="wp-today-pill">TODAY</span>}
+                    {dayTasks.length>0&&(
+                      <span className="wp-day-count">{doneCnt}/{dayTasks.length}</span>
+                    )}
+                  </div>
+                  <button className="wp-add-btn"
+                    disabled={atGoal}
+                    title={atGoal?`Weekly goal of ${weeklyGoal} reached`:"Add task"}
+                    onClick={()=>setTaskModal({mode:"add",day})}>
+                    + Add
+                  </button>
+                </div>
+                {dayTasks.length>0&&(
+                  <div className="wp-tasks">
+                    {dayTasks.map(task=>(
+                      <WpTaskItem key={task.id} task={task}
+                        onToggle={toggleTask}
+                        onEdit={tk=>setTaskModal({mode:"edit",task:tk})}
+                        onDelete={deleteTask}/>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── Modals ── */}
+      {taskModal&&(
+        <WpTaskModal
+          task={taskModal.mode==="edit"?taskModal.task:null}
+          defaultDay={taskModal.mode==="add"?(taskModal.day||todayDayName):undefined}
+          onSave={taskModal.mode==="edit"?editTask:addTask}
+          onClose={()=>setTaskModal(null)}/>
+      )}
+      {goalModal&&<WpGoalModal current={weeklyGoal} onSave={saveGoal} onClose={()=>setGoalModal(false)}/>}
+      {eowModal&&<WpEowModal pendingCount={pending} onMove={handleMove} onClear={handleClear} onClose={()=>setEowModal(false)}/>}
+    </div>
+  );
+}
+
+// ── Root App ──────────────────────────────────────────────────────────────────
+function App(){
+  if(!isConfigured) return <ConfigWarning/>;
+
+  const [user,setUser]         = useState(null);
+  const [userName,setUserName] = useState("");
+  const [habits,setHabits]     = useState([]);
+  const [view,setView]         = useState("today");
+  const [modal,setModal]       = useState(null);
+  const [confirm,setConfirm]   = useState(null);
+  const [confirmLoading,setConfirmLoading] = useState(false);
+  const [toast,setToast]       = useState(null);
+  const [showProfile,setShowProfile] = useState(false);
+  const [appLoading,setAppLoading]   = useState(true);
+  const [habitsLoading,setHabitsLoading] = useState(false);
+  const [offline,setOffline]   = useState(!navigator.onLine);
+
+  const showToast=msg=>setToast(msg);
+  const t=todayStr();
+
+  useEffect(()=>{
+    const on=()=>setOffline(false), off=()=>setOffline(true);
+    window.addEventListener("online",on); window.addEventListener("offline",off);
+    return()=>{ window.removeEventListener("online",on); window.removeEventListener("offline",off); };
+  },[]);
+
+  useEffect(()=>{
+    sb.auth.getSession().then(({data:{session}})=>{
+      if(session?.user){ setUser(session.user); setUserName(session.user.user_metadata?.full_name||session.user.email||""); }
+      setAppLoading(false);
+    }).catch(()=>setAppLoading(false));
+    const {data:{subscription}}=sb.auth.onAuthStateChange((_,session)=>{
+      if(session?.user){ setUser(session.user); setUserName(session.user.user_metadata?.full_name||session.user.email||""); }
+      else { setUser(null); setHabits([]); }
+    });
+    return()=>subscription.unsubscribe();
+  },[]);
+
+  useEffect(()=>{
+    if(!user) return;
+    setHabitsLoading(true);
+    DB.getHabits(user.id).then(setHabits)
+      .catch(e=>showToast("⚠️ Could not load habits: "+e.message))
+      .finally(()=>setHabitsLoading(false));
+  },[user]);
+
+  const handleAuth=(u,name)=>{setUser(u);setUserName(name);};
+  const handleSignOut=async()=>{
+    try{ await sb.auth.signOut(); }catch(e){ showToast("⚠️ "+e.message); }
+    setUser(null); setHabits([]); setShowProfile(false);
+  };
+
+  const saveHabit=async(sanitizedData)=>{
+    if(!user){ showToast("⚠️ Not signed in."); return; }
+    if(offline){ showToast("⚠️ You're offline."); return; }
+    try{
+      if(modal==="add"){
+        const id="h"+Date.now();
+        const saved=await DB.upsertHabit(user.id,id,sanitizedData,{},t);
+        setHabits(hs=>[...hs,{...saved,logs:{}}]);
+        showToast("✨ Habit added!");
+      } else {
+        const saved=await DB.upsertHabit(user.id,modal.id,sanitizedData,modal.logs||{},modal.created_at||t);
+        setHabits(hs=>hs.map(h=>h.id===modal.id?{...h,...saved,logs:h.logs}:h));
+        showToast("✏️ Habit updated!");
+      }
+      setModal(null);
+    }catch(e){ showToast("⚠️ Save failed: "+e.message); }
+  };
+
+  const deleteHabit=id=>{
+    setConfirm({
+      msg:"Delete this habit? All history will be permanently lost.",
+      onConfirm:async()=>{
+        if(!user){ showToast("⚠️ Not signed in."); return; }
+        setConfirmLoading(true);
+        try{
+          await DB.deleteHabit(user.id,id);
+          setHabits(hs=>hs.filter(h=>h.id!==id));
+          showToast("🗑️ Habit deleted."); setConfirm(null);
+        }catch(e){ showToast("⚠️ Delete failed: "+e.message); }
+        finally{ setConfirmLoading(false); }
+      }
+    });
+  };
+
+  const updateHabit=useCallback(updated=>{
+    if(!user) return;
+    const previous=habits.find(h=>h.id===updated.id);
+    setHabits(hs=>hs.map(h=>h.id===updated.id?updated:h));
+    const {done}=getPeriodProgress(updated.logs,t,updated.frequency||"daily",updated.goal);
+    if(done) showToast(`✅ ${updated.name} done!`);
+    DB.upsertHabit(user.id,updated.id,updated,updated.logs||{},updated.created_at||t)
+      .catch(e=>{
+        if(previous) setHabits(hs=>hs.map(h=>h.id===updated.id?previous:h));
+        showToast("⚠️ Sync failed, reverted.");
+      });
+  },[t,user,habits]);
+
+  const navItems=[{key:"today",label:"Today",icon:"☀️"},{key:"planner",label:"Planner",icon:"📋"},{key:"calendar",label:"Calendar",icon:"📅"},{key:"analytics",label:"Stats",icon:"📊"}];
+  const titles={today:"Today's Habits",planner:"Weekly Planner",calendar:"Calendar",analytics:"Analytics"};
+  const subs={
+    today:new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"}),
+    planner:"Plan, track and complete weekly tasks",
+    planner:fmtWeekRange(getPlannerWeekStart(todayStr())),
+    calendar:"Track your progress over time",
+    analytics:"Insights into your habits",
+  };
+  const completedToday=habits.filter(h=>getPeriodProgress(h.logs,t,h.frequency||"daily",h.goal).done).length;
+  const totalStreak=habits.length?habits.reduce((s,h)=>s+calcStreak(h.logs,h.frequency||"daily",h.goal),0):0;
+  const ini=mkInitials(userName);
+
+  if(appLoading) return(<div className="loading-screen"><h1>Habitual</h1><div className="spinner"/></div>);
+  if(!user) return <AuthScreen onAuth={handleAuth}/>;
+
+  return(
+    <div className="app">
+      {offline&&(
+        <div style={{position:"fixed",top:0,left:0,right:0,zIndex:999,background:"var(--danger)",color:"#fff",textAlign:"center",fontSize:13,fontWeight:600,padding:"8px 16px"}}>
+          ⚠️ You're offline — changes won't save until you reconnect
+        </div>
+      )}
+
+      {/* Sidebar */}
+      <div className="sidebar" style={{marginTop:offline?36:0}}>
+        <div className="sb-brand"><h1>Habitual</h1><p>Build better every day</p></div>
+        {navItems.map(n=>(
+          <div key={n.key} className={`nav-item ${view===n.key?"active":""}`} onClick={()=>setView(n.key)}>
+            <span style={{fontSize:16,width:20,textAlign:"center"}}>{n.icon}</span>
+            <span className="nav-txt">{n.label}</span>
+          </div>
+        ))}
+        <div className="sb-foot">
+          <div className="sb-stat">Total habits <span>{habits.length}</span></div>
+          <div className="sb-stat">On track <span>{completedToday}/{habits.length}</span></div>
+          <div className="sb-stat">Streak total <span>{totalStreak}</span></div>
+        </div>
+        <div className="user-chip" onClick={()=>setShowProfile(true)}>
+          <div className="u-av">{ini}</div>
+          <div className="u-info">
+            <div className="u-name">{userName}</div>
+            <div className="u-email">{user.email}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main */}
+      <div className="main" style={{marginTop:offline?36:0}}>
+        <div className="m-top">
+          <div><div className="m-top-title">{titles[view]}</div><div className="m-top-sub">{subs[view]}</div></div>
+          <div className="m-av" onClick={()=>setShowProfile(true)}>{ini}</div>
+        </div>
+        <div className="hdr">
+          <div><div className="hdr-title">{titles[view]}</div><div className="hdr-sub">{subs[view]}</div></div>
+          {view==="today"&&<button className="btn btn-primary" onClick={()=>setModal("add")}>+ New Habit</button>}
+        </div>
+
+        <div className="content">
+          {view==="today"&&(
+            habitsLoading?(
+              <div style={{textAlign:"center",padding:"60px 20px"}}>
+                <div className="spinner" style={{margin:"0 auto"}}/>
+                <p style={{color:"var(--muted)",marginTop:16,fontSize:14}}>Loading your habits…</p>
+              </div>
+            ):habits.length===0?(
+              <div className="empty">
+                <div className="empty-icon">🌱</div>
+                <h3>No habits yet</h3>
+                <p>Tap + to add your first habit</p>
+              </div>
+            ):(
+              <div className="grid">
+                {habits.map(h=>(
+                  <HabitCard key={h.id} habit={h}
+                    onUpdate={updateHabit} onDelete={deleteHabit} onEdit={h=>setModal(h)}/>
+                ))}
+              </div>
+            )
+          )}
+          {view==="planner"&&<WeeklyPlannerView user={user} offline={offline} showToast={showToast}/>}
+          {view==="calendar"&&<CalendarView habits={habits}/>}
+          {view==="analytics"&&<AnalyticsView habits={habits}/>}
+        </div>
+      </div>
+
+      {view==="today"&&<button className="fab" onClick={()=>setModal("add")} aria-label="Add habit">+</button>}
+
+      <nav className="bnav">
+        <div className="bnav-inner">
+          {navItems.map(n=>(
+            <div key={n.key} className={`bnav-item ${view===n.key?"active":""}`} onClick={()=>setView(n.key)}>
+              <span className="bni">{n.icon}</span><span>{n.label}</span>
+            </div>
+          ))}
+        </div>
+      </nav>
+
+      {modal&&<HabitModal habit={modal==="add"?null:modal} existingHabits={habits} onSave={saveHabit} onClose={()=>setModal(null)}/>}
+      {confirm&&<ConfirmModal msg={confirm.msg} loading={confirmLoading} onConfirm={confirm.onConfirm} onCancel={()=>!confirmLoading&&setConfirm(null)}/>}
+      {showProfile&&<ProfileModal user={user} userName={userName} habits={habits} onClose={()=>setShowProfile(false)} onSignOut={handleSignOut}/>}
+      {toast&&<Toast msg={toast} onDone={()=>setToast(null)}/>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+
+</body>
+</html>
